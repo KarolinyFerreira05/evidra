@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evidra – Sustentabilidade</title>
+  <link rel="stylesheet" href="Style.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="marca">
+      <span class="marca-icone">🌱</span>
+      <div><strong class="marca-nome">Evidra</strong><span class="marca-sub">Sustentabilidade</span></div>
+    </div>
+    <p class="menu-titulo">Gestão ESG</p>
+    <nav class="menu">
+      <a class="ativo" href="#" data-view="visao"><i data-icon="gauge"></i>Visão geral</a>
+      <a href="#" data-view="indicadores"><i data-icon="chart"></i>Indicadores</a>
+      <a href="#" data-view="relatorios"><i data-icon="report"></i>Relatórios</a>
+      <a href="#" data-view="evidencias"><i data-icon="file"></i>Evidências</a>
+      <a href="#" data-view="pendencias"><i data-icon="clip"></i>Pendências <span class="badge" id="badge-pendencias"></span></a>
+      <a href="#" data-view="equipe"><i data-icon="users"></i>Equipe</a>
+    </nav>
+    <div class="menu-rodape">
+      <a href="#" data-view="config"><i data-icon="cog"></i>Configurações</a>
+      <a href="#" data-view="ajuda"><i data-icon="help"></i>Ajuda e suporte</a>
+      <a href="#" id="btn-sair"><i data-icon="chevron"></i>Sair</a>
+      <div class="usuario">
+    <span class="avatar avatar-usuario" id="user-sigla">KP</span>
+    <div><strong id="user-nome">Karoliny Pimentel</strong><span id="user-cargo">Administradora</span></div>
+        <i data-icon="chevron"></i>
+      </div>
+    </div>
+  </aside>
+
+  <div class="principal">
+    <header class="topo">
+      <div class="topo-esq">
+        <button id="btn-menu" class="btn-icone" aria-label="Abrir ou recolher menu"><i data-icon="menu"></i></button>
+        <label class="busca"><i data-icon="search"></i><input type="search" id="busca" placeholder="Buscar indicadores, evidências..."></label>
+      </div>
+      <div class="topo-dir">
+        <button class="btn-icone sino" aria-label="Notificações"><i data-icon="bell"></i></button>
+        <button class="btn-primario" data-novo><i data-icon="plus"></i>Novo indicador</button>
+      </div>
+    </header>
+
+    <main class="container">
+
+      <!-- 1. Visão geral -->
+      <section class="view" id="view-visao">
+        <p class="pre-titulo">Panorama de sustentabilidade</p>
+        <div class="cab">
+          <div>
+            <h1 class="titulo" id="ola">Olá, Karoliny.</h1>
+            <p class="sub">Aqui está o desempenho ESG da sua empresa neste período.</p>
+          </div>
+          <label class="periodo">Período <select><option>2026</option><option>2025</option></select></label>
+        </div>
+        <div class="resumo" id="resumo"></div>
+        <div class="linha-baixo">
+          <div class="painel">
+            <div class="painel-topo">
+              <div><h2>Indicadores que precisam de atenção</h2><p class="painel-sub">Dados próximos do Prazo ou desatualizados</p></div>
+              <a href="#" class="link-pequeno" data-view="indicadores">Ver todos</a>
+            </div>
+            <div id="atencao"></div>
+          </div>
+          <div class="coluna-direita">
+            <div class="painel">
+              <div class="painel-topo"><h2>Completude dos dados</h2><span class="verde" data-icon="shield"></span></div>
+              <div class="completude">
+                <div class="donut" id="donut"><span id="donut-valor">0%</span></div>
+                <div class="completude-info"><p id="c-completos"></p><p id="c-pendentes"></p><small>Ótimo progresso. Faltam poucas evidências para concluir.</small></div>
+              </div>
+            </div>
+            <div class="painel">
+              <div class="painel-topo"><h2>Atividade recente</h2><a href="#" class="link-pequeno">Ver histórico</a></div>
+              <div id="atividade"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Indicadores -->
+      <section class="view" id="view-indicadores" hidden>
+        <p class="pre-titulo">Gestão de dados</p>
+        <div class="cab">
+          <div><h1 class="titulo">Indicadores</h1><p class="sub">Acompanhe metas, valores atuais e tendências de cada indicador ESG.</p></div>
+          <button class="btn-primario" data-novo><i data-icon="plus"></i>Novo indicador</button>
+        </div>
+        <div class="chips">
+          <button class="chip ativo" data-filter="todos">Todos</button>
+          <button class="chip" data-filter="Ambiental">Ambiental</button>
+          <button class="chip" data-filter="Social">Social</button>
+          <button class="chip" data-filter="Governança">Governança</button>
+        </div>
+        <div class="grade-3" id="grade-indicadores"></div>
+      </section>
+
+      <!-- 3. Evidências -->
+      <section class="view" id="view-evidencias" hidden>
+        <p class="pre-titulo">Rastreabilidade</p>
+        <h1 class="titulo">Evidências</h1>
+        <p class="sub">Cada dado reportado precisa de um comprovante. Envie e revise documentos aqui.</p>
+        <div class="dropzone" id="dropzone">
+          <span class="dz-icone" data-icon="upload"></span>
+          <strong>Arraste arquivos para cá</strong>
+          <small>PDF, planilhas ou imagens de até 20 MB</small>
+          <button class="btn-primario" id="btn-arquivos">Selecionar arquivos</button>
+          <input type="file" id="input-arquivos" multiple hidden>
+        </div>
+        <div class="painel sem-pad">
+          <h2 class="painel-titulo">Documentos enviados</h2>
+          <div id="lista-docs"></div>
+        </div>
+      </section>
+
+      <!-- 4. Relatórios -->
+      <section class="view" id="view-relatorios" hidden>
+        <p class="pre-titulo">Transparência</p>
+        <div class="cab">
+          <div><h1 class="titulo">Relatórios</h1><p class="sub">Transforme seus indicadores em relatórios prontos para compartilhar.</p></div>
+          <button class="btn-primario" id="btn-novo-rel"><i data-icon="plus"></i>Novo relatório</button>
+        </div>
+        <h2 class="secao-titulo">Modelos disponíveis</h2>
+        <div class="grade-3" id="modelos"></div>
+        <div class="painel sem-pad">
+          <h2 class="painel-titulo">Relatórios gerados</h2>
+          <div id="lista-rel"></div>
+        </div>
+      </section>
+
+      <!-- 5. Pendências -->
+      <section class="view" id="view-pendencias" hidden>
+        <p class="pre-titulo">Rotina</p>
+        <h1 class="titulo">Pendências</h1>
+        <p class="sub" id="sub-pend"></p>
+        <div class="painel sem-pad" id="lista-pend"></div>
+      </section>
+
+      <!-- 6. Equipe -->
+      <section class="view" id="view-equipe" hidden>
+        <p class="pre-titulo">Pessoas</p>
+        <div class="cab">
+          <div><h1 class="titulo">Equipe</h1><p class="sub">Quem cuida de cada indicador e de cada evidência.</p></div>
+          <button class="btn-primario" id="btn-convidar"><i data-icon="users"></i>Convidar pessoa</button>
+        </div>
+        <div class="grade-3" id="grade-equipe"></div>
+      </section>
+
+      <!-- 7. Configurações -->
+      <section class="view" id="view-config" hidden>
+        <p class="pre-titulo">Conta</p>
+        <h1 class="titulo">Configurações</h1>
+        <p class="sub">Informações da organização e preferências do sistema.</p>
+        <div class="grade-2">
+          <div class="painel">
+            <h2>Dados da empresa</h2>
+            <label class="campo">Nome da organização<input type="text" id="cfg-nome" value="Empresa Exemplo Ltda."></label>
+            <label class="campo">Setor<input type="text" id="cfg-setor" value="Indústria de transformação"></label>
+            <label class="campo">Meta do índice ESG para 2026<input type="number" id="cfg-meta" value="90" min="0" max="100"></label>
+            <button class="btn-primario" id="cfg-salvar">Salvar alterações</button>
+            <span class="salvo" id="cfg-salvo" hidden>Alterações salvas.</span>
+          </div>
+          <div class="painel">
+            <h2>Notificações</h2>
+            <label class="toggle-linha"><span>Prazos de indicadores<small>Aviso 7 dias antes do vencimento</small></span><input type="checkbox" class="switch" checked></label>
+            <label class="toggle-linha"><span>Novas evidências<small>Quando alguém enviar um documento</small></span><input type="checkbox" class="switch" checked></label>
+            <label class="toggle-linha"><span>Resumo semanal<small>E-mail com o desempenho da semana</small></span><input type="checkbox" class="switch" checked></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Ajuda -->
+      <section class="view" id="view-ajuda" hidden>
+        <p class="pre-titulo">Suporte</p>
+        <h1 class="titulo">Ajuda e suporte</h1>
+        <p class="sub">Perguntas frequentes e canais de atendimento.</p>
+        <div class="ajuda-grade">
+          <div class="painel sem-pad faq">
+            <details><summary>O que é ESG?</summary><p>Sigla em inglês para Ambiental, Social e Governança: os três pilares usados para medir o impacto e a gestão responsável de uma empresa.</p></details>
+            <details><summary>Como cadastro um novo indicador?</summary><p>Clique em “Novo indicador”, informe nome, categoria, valor e progresso da meta, e salve.</p></details>
+            <details><summary>Por que preciso enviar evidências?</summary><p>Cada dado reportado precisa de um comprovante para ser auditável e confiável em relatórios.</p></details>
+            <details><summary>Quais ODS o sistema apoia?</summary><p>O foco está nos ODS 12 (consumo responsável), 9 (indústria e inovação) e 13 (ação contra a mudança do clima).</p></details>
+          </div>
+          <div class="card-suporte">
+            <span data-icon="mail"></span>
+            <h3>Ainda com dúvidas?</h3>
+            <p>Nossa equipe responde em até 1 dia útil.</p>
+            <a class="btn-claro" href="mailto:suporte@evidra.com">Falar com o suporte</a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="formulario">
+    <h2>Novo indicador</h2>
+    <div class="linha-form">
+      <input type="text" id="f-nome" placeholder="Nome do indicador">
+      <select id="f-categoria"><option>Ambiental</option><option>Social</option><option>Governança</option></select>
+    </div>
+    <div class="linha-form">
+      <input type="text" id="f-valor" placeholder="Valor (ex: 120 t)">
+      <input type="number" id="f-prog" placeholder="Progresso da meta (%)" min="0" max="100">
+    </div>
+    <p class="mensagem-erro" id="f-erro"></p>
+    <div class="acoes-form">
+      <button type="button" id="f-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="button" id="f-add" class="btn-primario">Adicionar indicador</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="login">
+  <div class="formulario">
+    <h2>Entrar no Evidra</h2>
+    <div class="linha-form"><input type="email" id="l-email" placeholder="E-mail"></div>
+    <div class="linha-form"><input type="password" id="l-senha" placeholder="Senha"></div>
+    <p class="mensagem-erro" id="l-erro"></p>
+    <div class="acoes-form">
+      <button type="button" id="l-entrar" class="btn-primario">Entrar</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="App.js"></script>
+</body>
+</html>
