@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sobre o projeto – Evidra</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="description" content="Conheça o Evidra, plataforma de gestão de indicadores ESG com evidências rastreáveis, desenvolvida pela equipe BioNode no projeto UPX.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Zilla+Slab:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mostarda:#D6A928;
+    --petroleo:#205B63;
+    --petroleo-escuro:#174850;
+    --offwhite:#FAF8F2;
+    --verde-claro:#A7B4BA;
+    --azul-escuro:#2E3A40;
+    --borda:#E6E1D6;
+    --suave:#5F6B70;
+    --fundo-icone:#E4ECEA;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--azul-escuro);background:#fff;line-height:1.55}
+  a{color:inherit}
+  img{max-width:100%;display:block}
+  :focus-visible{outline:3px solid var(--mostarda);outline-offset:3px}
+  h1,h2{font-family:'Zilla Slab',serif;font-weight:700;color:#111;line-height:1.15}
+  h2{font-size:clamp(1.8rem,4vw,2.5rem)}
+  h3{font-size:1.05rem;font-weight:700;color:#111}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 5vw}
+  section{padding:5rem 0}
+  .eyebrow{font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--petroleo);margin-bottom:.9rem}
+  .intro{max-width:60ch;color:var(--suave);margin-top:1rem}
+  .destaque{background:var(--petroleo);color:var(--offwhite);padding:.05em .25em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+
+  /* botões */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.7rem 1.6rem;border-radius:999px;font:600 .9rem 'Plus Jakarta Sans',sans-serif;text-decoration:none;border:1.5px solid transparent;cursor:pointer;transition:transform .15s,background .15s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primario{background:var(--petroleo);color:#fff}
+  .btn-primario:hover{background:var(--petroleo-escuro)}
+  .btn-mostarda{background:var(--mostarda);color:var(--azul-escuro)}
+  .btn-contorno{background:var(--offwhite);color:var(--petroleo);border-color:var(--petroleo)}
+
+  /* cabeçalho */
+  .topo{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--borda)}
+  .topo .wrap{display:flex;justify-content:space-between;align-items:center;gap:1.5rem;padding-top:.9rem;padding-bottom:.9rem}
+  .logo{height:40px;width:auto}
+  .logo-texto{font-family:'Zilla Slab',serif;font-size:1.6rem;font-weight:700;color:var(--petroleo);text-decoration:none}
+  .menu{display:flex;gap:1.6rem;list-style:none;font-size:.88rem;font-weight:600}
+  .menu a{text-decoration:none;color:var(--azul-escuro)}
+  .menu a:hover{color:var(--petroleo)}
+
+  /* hero */
+  .hero{padding:4.5rem 0 4rem}
+  .hero-grade{display:grid;grid-template-columns:1.25fr 1fr;gap:3.5rem;align-items:center}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.3rem)}
+  .hero p{margin:1.3rem 0 1.8rem;max-width:48ch}
+  .acoes{display:flex;gap:.9rem;flex-wrap:wrap}
+  .numeros{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .numero{background:var(--offwhite);border:1px solid var(--borda);border-radius:14px;padding:1.3rem}
+  .numero strong{display:block;font-family:'Zilla Slab',serif;font-size:2.4rem;color:var(--petroleo);line-height:1}
+  .numero span{font-size:.85rem;color:var(--suave)}
+  .numero.cheio{background:var(--petroleo);border-color:var(--petroleo)}
+  .numero.cheio strong{color:var(--mostarda)}
+  .numero.cheio span{color:#D3E6E4}
+
+  /* problema */
+  .faixa{background:var(--petroleo);color:var(--offwhite)}
+  .faixa h2{color:#fff}
+  .faixa .eyebrow{color:var(--mostarda)}
+  .problema-grade{display:grid;grid-template-columns:1fr 1.15fr;gap:3.5rem;align-items:start}
+  .problema-grade p+p{margin-top:1rem}
+  .contraste{display:grid;gap:12px;margin-top:2rem}
+  .contraste div{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.07);border-radius:12px;padding:1rem 1.1rem;font-size:.92rem}
+  .contraste b{color:var(--mostarda);flex-shrink:0;width:5.5rem}
+
+  /* como funciona */
+  .fundo-claro{background:var(--offwhite)}
+  .passos{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:2.5rem;counter-reset:passo;list-style:none}
+  .passos li{background:#fff;border:1px solid var(--borda);border-radius:14px;padding:1.4rem;position:relative}
+  .passos li::before{counter-increment:passo;content:counter(passo,decimal-leading-zero);display:block;font-family:'Zilla Slab',serif;font-weight:700;font-size:1.6rem;color:var(--mostarda);margin-bottom:.6rem}
+  .passos p{font-size:.88rem;color:var(--suave);margin-top:.4rem}
+
+  /* perfis */
+  .perfis{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:2.5rem}
+  .perfil{border:1px solid var(--borda);border-radius:16px;padding:1.6rem;display:flex;flex-direction:column}
+  .perfil-ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:var(--fundo-icone);color:var(--petroleo);margin-bottom:1rem}
+  .perfil-ic svg,.recurso-ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .perfil.destaque-card{background:var(--petroleo);border-color:var(--petroleo);color:#D3E6E4}
+  .perfil.destaque-card h3{color:#fff}
+  .perfil.destaque-card .perfil-ic{background:var(--mostarda);color:var(--azul-escuro)}
+  .perfil>p{font-size:.9rem;margin:.5rem 0 1rem}
+  .perfil ul{list-style:none;display:grid;gap:.5rem;font-size:.86rem;margin-top:auto}
+  .perfil li{display:flex;gap:.5rem}
+  .perfil li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mostarda);margin-top:.5rem;flex-shrink:0}
+
+  /* recursos */
+  .recursos{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:2.5rem}
+  .recurso{background:#fff;border:1px solid var(--borda);border-radius:14px;padding:1.4rem}
+  .recurso-ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--fundo-icone);color:var(--petroleo);margin-bottom:.9rem}
+  .recurso p{font-size:.88rem;color:var(--suave);margin-top:.4rem}
+
+  /* ODS */
+  .ods{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:2.5rem}
+  .ods-card{border-radius:16px;overflow:hidden;border:1px solid var(--borda);display:flex;flex-direction:column}
+  .ods-topo{color:#fff;padding:1.3rem 1.4rem;display:flex;align-items:center;gap:1rem}
+  .ods-topo strong{font-family:'Zilla Slab',serif;font-size:2.6rem;line-height:1}
+  .ods-topo span{font-weight:700;font-size:.95rem;line-height:1.3}
+  .ods-card p{padding:1.2rem 1.4rem;font-size:.88rem;color:var(--suave)}
+  .ods-9{background:#C9541C}
+  .ods-12{background:#9A6D20}
+  .ods-13{background:#3F7E44}
+
+  /* bionode */
+  .bionode{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:center}
+  .formula{display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;background:var(--offwhite);border:1px solid var(--borda);border-radius:18px;padding:2.2rem 1.5rem}
+  .formula div{text-align:center}
+  .formula strong{display:block;font-family:'Zilla Slab',serif;font-size:2.2rem;color:var(--petroleo)}
+  .formula small{font-size:.8rem;color:var(--suave)}
+  .formula .sinal{font-family:'Zilla Slab',serif;font-size:2rem;color:var(--mostarda)}
+  .formula .resultado strong{background:var(--petroleo);color:var(--offwhite);padding:0 .3em;border-radius:6px}
+  .bionode p+p{margin-top:1rem}
+
+  /* equipe */
+  .equipe{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:2.5rem}
+  .membro{border:1px solid var(--borda);border-radius:16px;padding:1.5rem 1.2rem;text-align:center;background:#fff}
+  .avatar{width:64px;height:64px;border-radius:50%;margin:0 auto 1rem;display:grid;place-items:center;font-family:'Zilla Slab',serif;font-size:1.7rem;font-weight:700;background:var(--fundo-icone);color:var(--petroleo)}
+  .membro.lider .avatar{background:var(--mostarda);color:var(--azul-escuro)}
+  .membro p{font-size:.84rem;color:var(--suave);margin-top:.35rem}
+
+  /* tecnologias */
+  .tecs{display:flex;flex-wrap:wrap;gap:10px;margin-top:1.5rem}
+  .tec{border:1px solid var(--borda);border-radius:999px;padding:.5rem 1rem;font-size:.85rem;font-weight:600;background:#fff}
+  .tec span{color:var(--suave);font-weight:500}
+
+  /* FAQ */
+  .faq{max-width:820px;margin-top:2.5rem;border:1px solid var(--borda);border-radius:16px;background:#fff;overflow:hidden}
+  .faq details{border-top:1px solid var(--borda)}
+  .faq details:first-child{border-top:none}
+  .faq summary{list-style:none;cursor:pointer;padding:1.1rem 1.4rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;font-weight:600}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--azul-escuro);border-bottom:2px solid var(--azul-escuro);transform:rotate(45deg);flex-shrink:0;transition:transform .15s}
+  .faq details[open] summary::after{transform:rotate(-135deg)}
+  .faq details p{padding:0 1.4rem 1.2rem;font-size:.9rem;color:var(--suave)}
+
+  /* chamada final */
+  .chamada{text-align:center}
+  .chamada h2{color:#fff;max-width:22ch;margin:0 auto}
+  .chamada p{max-width:52ch;margin:1rem auto 2rem;color:#D3E6E4}
+  .chamada .acoes{justify-content:center}
+  .chamada .btn-contorno{background:transparent;color:#fff;border-color:rgba(255,255,255,.6)}
+
+  /* rodapé */
+  footer{background:var(--azul-escuro);color:#C6CED1;font-size:.85rem;padding:2.2rem 0}
+  footer .wrap{display:flex;justify-content:space-between;gap:1.5rem;flex-wrap:wrap}
+  footer strong{color:#fff}
+
+  @media (max-width:1000px){
+    .equipe{grid-template-columns:repeat(3,1fr)}
+    .passos{grid-template-columns:1fr 1fr}
+    .recursos{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:760px){
+    section{padding:3.5rem 0}
+    .menu{display:none}
+    .logo{height:32px}
+    .hero{padding:2.5rem 0 3rem}
+    .hero-grade,.problema-grade,.bionode{grid-template-columns:1fr;gap:2rem}
+    .perfis,.recursos,.ods,.passos{grid-template-columns:1fr}
+    .equipe{grid-template-columns:1fr 1fr}
+    .contraste b{width:4.5rem}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <a href="index.html" aria-label="Evidra – página inicial">
+      <img class="logo" src="EVIDRA-completo.svg" alt="Evidra"
+           onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-texto',textContent:'Evidra'}))">
+    </a>
+    <nav aria-label="Seções">
+      <ul class="menu">
+        <li><a href="#projeto">Projeto</a></li>
+        <li><a href="#perfis">Perfis</a></li>
+        <li><a href="#recursos">Recursos</a></li>
+        <li><a href="#ods">ODS</a></li>
+        <li><a href="#equipe">Equipe</a></li>
+        <li><a href="#faq">Dúvidas</a></li>
+      </ul>
+    </nav>
+    <a class="btn btn-primario" href="index.html#entrar">Entrar</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grade">
+      <div>
+        <p class="eyebrow">Projeto UPX • BioNode</p>
+        <h1>Dados ESG que <span class="destaque">provam de onde vieram</span></h1>
+        <p>O Evidra é uma plataforma que liga cada indicador ambiental, social e de governança à evidência que o sustenta. Assim, o relatório final pode ser conferido do começo ao fim.</p>
+        <div class="acoes">
+          <a class="btn btn-mostarda" href="index.html#entrar">Acessar o Evidra →</a>
+          <a class="btn btn-contorno" href="#projeto">Conhecer o projeto</a>
+        </div>
+      </div>
+      <div class="numeros" aria-label="O projeto em números">
+        <div class="numero cheio"><strong>3</strong><span>pilares: Ambiental, Social e Governança</span></div>
+        <div class="numero"><strong>3</strong><span>perfis de acesso com papéis definidos</span></div>
+        <div class="numero"><strong>3</strong><span>ODS da ONU apoiados pelo sistema</span></div>
+        <div class="numero"><strong>100%</strong><span>dos indicadores ligados a uma evidência</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEMA E PROPOSTA -->
+  <section class="faixa" id="projeto">
+    <div class="wrap problema-grade">
+      <div>
+        <p class="eyebrow">Sobre o projeto</p>
+        <h2>Por que criamos o Evidra</h2>
+      </div>
+      <div>
+        <p>O Evidra nasceu na disciplina de UPX do 2º semestre de Análise e Desenvolvimento de Sistemas. O desafio era criar uma solução tecnológica com impacto em sustentabilidade.</p>
+        <p>Percebemos que muitas empresas já medem seus indicadores ESG, mas guardam essas informações em planilhas soltas, pastas e e-mails. Na hora de apresentar um relatório, fica difícil responder à pergunta mais importante: <strong>de onde veio esse número?</strong></p>
+        <div class="contraste">
+          <div><b>Antes</b><span>Planilhas em várias versões, comprovantes perdidos e nenhum registro de quem alterou o quê.</span></div>
+          <div><b>Com o Evidra</b><span>Indicadores e comprovantes em um só lugar, com histórico de alterações e relatórios prontos para auditoria.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section class="fundo-claro">
+    <div class="wrap">
+      <p class="eyebrow">Como funciona</p>
+      <h2>Da origem do dado ao relatório</h2>
+      <ol class="passos">
+        <li><h3>Cadastre o indicador</h3><p>Defina nome, pilar ESG, valor e meta. Por exemplo, consumo de energia ou horas de treinamento.</p></li>
+        <li><h3>Anexe a evidência</h3><p>Envie o comprovante que sustenta o dado, como uma fatura, um laudo ou uma lista de presença.</p></li>
+        <li><h3>Acompanhe pendências</h3><p>O sistema avisa quando um indicador está perto do prazo, desatualizado ou sem comprovante.</p></li>
+        <li><h3>Gere o relatório</h3><p>Exporte relatórios em que cada número aponta para a sua evidência e para o histórico de alterações.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- PERFIS -->
+  <section id="perfis">
+    <div class="wrap">
+      <p class="eyebrow">Perfis de usuário</p>
+      <h2>Cada pessoa com o seu papel</h2>
+      <p class="intro">O acesso é dividido em três perfis. Cada um enxerga e faz apenas o que precisa.</p>
+      <div class="perfis">
+        <article class="perfil destaque-card">
+          <div class="perfil-ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
+          <h3>Administrador</h3>
+          <p>Configura a plataforma e organiza o trabalho da equipe.</p>
+          <ul>
+            <li>Cadastra usuários e define perfis</li>
+            <li>Cria e organiza indicadores por pilar</li>
+            <li>Acompanha a completude dos dados</li>
+          </ul>
+        </article>
+        <article class="perfil">
+          <div class="perfil-ic"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 18v-6M9 15h6"/></svg></div>
+          <h3>Responsável por dados</h3>
+          <p>Mantém os indicadores em dia e comprova cada informação.</p>
+          <ul>
+            <li>Atualiza os valores dos indicadores</li>
+            <li>Envia as evidências de cada dado</li>
+            <li>Resolve as pendências apontadas</li>
+          </ul>
+        </article>
+        <article class="perfil">
+          <div class="perfil-ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11l2 2 4-4"/></svg></div>
+          <h3>Auditor</h3>
+          <p>Confere se o que foi reportado tem comprovação.</p>
+          <ul>
+            <li>Consulta indicadores e evidências</li>
+            <li>Analisa o histórico de alterações</li>
+            <li>Emite relatórios de auditoria</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECURSOS -->
+  <section class="fundo-claro" id="recursos">
+    <div class="wrap">
+      <p class="eyebrow">Recursos</p>
+      <h2>O que o Evidra oferece</h2>
+      <div class="recursos">
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+          <h3>Painel de indicadores</h3>
+          <p>Visão geral do desempenho ESG da empresa, com a completude dos dados e a atividade recente.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></div>
+          <h3>Evidências vinculadas</h3>
+          <p>Cada comprovante fica ligado ao indicador que ele sustenta, sem arquivos perdidos.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <h3>Pendências e alertas</h3>
+          <p>Avisos de indicadores perto do prazo, desatualizados ou sem evidência.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <h3>Histórico de alterações</h3>
+          <p>Registro de quem alterou cada dado e quando, para garantir a rastreabilidade.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div>
+          <h3>Relatórios de auditoria</h3>
+          <p>Relatórios prontos para conferência, com os dados e as evidências de cada período.</p>
+        </article>
+        <article class="recurso">
+          <div class="recurso-ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6M16 4a3.5 3.5 0 0 1 0 7M22 20c0-3-2-5-4.5-5.7"/></svg></div>
+          <h3>Gestão de equipe</h3>
+          <p>Controle de quem participa, com login seguro e permissões de acordo com cada perfil.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ODS -->
+  <section id="ods">
+    <div class="wrap">
+      <p class="eyebrow">Impacto</p>
+      <h2>Objetivos de Desenvolvimento Sustentável</h2>
+      <p class="intro">O Evidra se conecta a três ODS da Agenda 2030 da ONU.</p>
+      <div class="ods">
+        <article class="ods-card">
+          <div class="ods-topo ods-12"><strong>12</strong><span>Consumo e produção responsáveis</span></div>
+          <p>Ajuda empresas a medir e comprovar o uso de recursos, a geração de resíduos e as práticas sustentáveis.</p>
+        </article>
+        <article class="ods-card">
+          <div class="ods-topo ods-9"><strong>9</strong><span>Indústria, inovação e infraestrutura</span></div>
+          <p>Leva tecnologia e organização para a gestão ESG, substituindo planilhas soltas por um processo digital rastreável.</p>
+        </article>
+        <article class="ods-card">
+          <div class="ods-topo ods-13"><strong>13</strong><span>Ação contra a mudança global do clima</span></div>
+          <p>Dá confiabilidade aos indicadores ambientais, como emissões e energia, que orientam as decisões climáticas.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- BIONODE -->
+  <section class="fundo-claro" id="bionode">
+    <div class="wrap bionode">
+      <div>
+        <p class="eyebrow">Quem somos</p>
+        <h2>Por trás do Evidra está a BioNode</h2>
+        <p class="intro">BioNode é o nome da nossa equipe. Ele junta <strong>Bio</strong>, de vida e do que é biológico, com <strong>Node</strong>, o nó de uma rede, o ponto de conexão em um sistema.</p>
+        <p class="intro">A ideia é ser um ponto de conexão vivo: um nó que liga os dados ambientais e sociais da empresa a um sistema confiável. É algo orgânico e sustentável dentro de uma estrutura tecnológica em rede.</p>
+      </div>
+      <div class="formula" aria-label="Bio mais Node igual a BioNode">
+        <div><strong>Bio</strong><small>vida, biológico</small></div>
+        <span class="sinal" aria-hidden="true">+</span>
+        <div><strong>Node</strong><small>nó, conexão</small></div>
+        <span class="sinal" aria-hidden="true">=</span>
+        <div class="resultado"><strong>BioNode</strong><small>ponto de conexão vivo</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EQUIPE -->
+  <section id="equipe">
+    <div class="wrap">
+      <p class="eyebrow">Equipe</p>
+      <h2>Quem desenvolve o Evidra</h2>
+      <p class="intro">Estudantes do 2º semestre de Análise e Desenvolvimento de Sistemas.</p>
+      <div class="equipe">
+        <article class="membro lider">
+          <div class="avatar" aria-hidden="true">K</div>
+          <h3>Karoliny</h3>
+          <p>Líder de projeto, UX designer e desenvolvedora</p>
+        </article>
+        <article class="membro">
+          <div class="avatar" aria-hidden="true">G</div>
+          <h3>Gabriely</h3>
+          <p>Desenvolvimento técnico</p>
+        </article>
+        <article class="membro">
+          <div class="avatar" aria-hidden="true">M</div>
+          <h3>Marcos</h3>
+          <p>Planejamento e documentação</p>
+        </article>
+        <article class="membro">
+          <div class="avatar" aria-hidden="true">G</div>
+          <h3>Gabriel</h3>
+          <p>Pesquisa e análise</p>
+        </article>
+        <article class="membro">
+          <div class="avatar" aria-hidden="true">L</div>
+          <h3>Lorena</h3>
+          <p>Design e comunicação</p>
+        </article>
+      </div>
+
+      <h3 style="margin-top:3rem">Tecnologias utilizadas</h3>
+      <div class="tecs">
+        <span class="tec">Java <span>· Spring Boot</span></span>
+        <span class="tec">MySQL</span>
+        <span class="tec">HTML, CSS e JavaScript</span>
+        <span class="tec">Login com JWT</span>
+        <span class="tec">Microsoft Azure</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="fundo-claro" id="faq">
+    <div class="wrap">
+      <p class="eyebrow">Dúvidas frequentes</p>
+      <h2>Perguntas e respostas</h2>
+      <div class="faq">
+        <details>
+          <summary>O que é ESG?</summary>
+          <p>É a sigla em inglês para Ambiental, Social e Governança. São os três pilares usados para medir o impacto e a gestão responsável de uma empresa.</p>
+        </details>
+        <details>
+          <summary>Por que cada indicador precisa de uma evidência?</summary>
+          <p>Um dado sem comprovante não pode ser conferido. Com a evidência ligada ao indicador, qualquer número do relatório pode ser verificado em uma auditoria.</p>
+        </details>
+        <details>
+          <summary>Preciso abandonar minhas planilhas?</summary>
+          <p>Não. O Evidra funciona junto com os dados que a empresa já tem em Excel. A ideia é organizar e comprovar, sem obrigar a troca dos sistemas atuais.</p>
+        </details>
+        <details>
+          <summary>Quem pode usar o sistema?</summary>
+          <p>Há três perfis: Administrador, Responsável por dados e Auditor. Cada um tem acesso apenas às funções do seu papel.</p>
+        </details>
+        <details>
+          <summary>Quais ODS o Evidra apoia?</summary>
+          <p>O foco está nos ODS 12 (consumo e produção responsáveis), 9 (indústria, inovação e infraestrutura) e 13 (ação contra a mudança global do clima).</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHAMADA FINAL -->
+  <section class="faixa chamada">
+    <div class="wrap">
+      <h2>Pronto para comprovar cada indicador?</h2>
+      <p>Acesse a plataforma e veja na prática como o Evidra organiza seus dados ESG.</p>
+      <div class="acoes">
+        <a class="btn btn-mostarda" href="index.html#entrar">Entrar no Evidra →</a>
+        <a class="btn btn-contorno" href="#">Voltar ao topo</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><strong>Evidra</strong> · desenvolvido pela BioNode © 2026</span>
+    <span>Projeto UPX · Análise e Desenvolvimento de Sistemas · 2º semestre</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -4,14 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Evidra – Sustentabilidade</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Zilla+Slab:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="Style.css">
 </head>
 <body>
-<div class="app" id="app">
+  <div id="carregando" class="carregando" role="status" aria-live="polite">
+    <img class="carregando-logo" src="EVIDRA-completo.svg" alt="Evidra">
+    <span class="spinner" aria-hidden="true"></span>
+    <p id="carregando-msg">Carregando…</p>
+  </div>
+  <div id="landing" class="pub">
+  <header class="p-header">
+  <a href="#" data-ir="landing" aria-label="Evidra – início"><img class="p-logo" src="EVIDRA-completo.svg" alt="Evidra"></a>
+  <nav class="p-nav">
+      <a class="p-btn p-outline" href="sobre.html">Sobre</a>
+      <a class="p-btn p-primary" href="#" data-ir="entrar">Entrar</a>
+    </nav>
+  </header>
+  <main>
+    <section class="p-hero">
+      <p class="p-eyebrow">PROJETO UPX • BIONODE</p>
+      <h1>Cada indicador ESG, <span class="p-destaque">com origem comprovada</span></h1>
+      <p>Centralize indicadores e evidências em um só lugar e rastreie cada dado, da origem ao relatório final.</p>
+      <div class="p-hero-actions">
+        <a class="p-btn p-mostarda" href="#" data-ir="entrar">Entrar →</a>
+        <a class="p-btn p-outline" href="sobre.html">Saber mais</a>
+      </div>
+      <p class="p-trust">Rastreável · Auditável · Funciona com seus dados em Excel</p>
+    </section>
+    <section class="p-sobre" id="sobre">
+      <h2>Transparência que se comprova</h2>
+      <p>Os dados ESG das empresas costumam ficar espalhados em planilhas e e-mails, o que dificulta provar a origem de cada indicador. O Evidra centraliza indicadores e evidências, registra o histórico de alterações e gera relatórios de auditoria, sem exigir a troca dos sistemas que a empresa já usa.</p>
+    </section>
+  </main>
+</div>
 
+<div id="entrar" class="pub p-login" hidden>
+  <div class="p-card">
+  <img class="p-logo" src="EVIDRA-completo.svg" alt="Evidra"> <h2>Entre para acessar seus indicadores e evidências.</h2>
+    <div class="p-field">
+      <label for="l-email">E-mail</label>
+      <input id="l-email" type="email" autocomplete="email">
+    </div>
+    <div class="p-field">
+      <label for="l-senha">Senha</label>
+      <input id="l-senha" type="password" autocomplete="current-password">
+    </div>
+    <a class="p-forgot" href="#" onclick="return false">Esqueci minha senha</a>
+    <p class="p-erro" id="l-erro" role="alert"></p>
+    <button type="button" id="l-entrar" class="p-btn p-mostarda">Entrar →</button>
+    <a class="p-back" href="#" data-ir="landing">← Voltar para o início</a>
+  </div>
+</div>
+<div class="app" id="app" hidden>
   <aside class="sidebar" id="sidebar">
     <div class="marca">
-      <span class="marca-icone">🌱</span>
+    <img src="EVIDRA.svg" alt="Logo" class="logo">
       <div><strong class="marca-nome">Evidra</strong><span class="marca-sub">Sustentabilidade</span></div>
     </div>
     <p class="menu-titulo">Gestão ESG</p>
@@ -27,10 +78,12 @@
       <a href="#" data-view="config"><i data-icon="cog"></i>Configurações</a>
       <a href="#" data-view="ajuda"><i data-icon="help"></i>Ajuda e suporte</a>
       <a href="#" id="btn-sair"><i data-icon="chevron"></i>Sair</a>
-      <div class="usuario">
-    <span class="avatar avatar-usuario" id="user-sigla">KP</span>
-    <div><strong id="user-nome">Karoliny Pimentel</strong><span id="user-cargo">Administradora</span></div>
-        <i data-icon="chevron"></i>
+      <div class="usuario-wrap">
+        <a href="#" class="usuario" data-view="perfil" title="Meu perfil">
+          <span class="avatar avatar-usuario" id="user-sigla">KP</span>
+          <div><strong id="user-nome">Karoliny Pimentel</strong><span id="user-cargo">Administradora</span></div>
+          <i data-icon="chevron" class="usuario-seta"></i>
+        </a>
       </div>
     </div>
   </aside>
@@ -39,15 +92,16 @@
     <header class="topo">
       <div class="topo-esq">
         <button id="btn-menu" class="btn-icone" aria-label="Abrir ou recolher menu"><i data-icon="menu"></i></button>
-        <label class="busca"><i data-icon="search"></i><input type="search" id="busca" placeholder="Buscar indicadores, evidências..."></label>
+        <label class="busca"><i data-icon="search"></i><input type="search" id="busca" placeholder="Buscar na visão geral..." aria-label="Buscar nesta tela" autocomplete="off"></label>
       </div>
       <div class="topo-dir">
-        <button class="btn-icone sino" aria-label="Notificações"><i data-icon="bell"></i></button>
-        <button class="btn-primario" data-novo><i data-icon="plus"></i>Novo indicador</button>
+        <button class="btn-icone sino" id="btn-sino" aria-label="Notificações"><i data-icon="bell"></i><span class="sino-contador" id="sino-contador"></span></button>
+        <button class="btn-primario" data-novo data-perm="indicadores"><i data-icon="plus"></i>Novo indicador</button>
       </div>
     </header>
 
     <main class="container">
+      <button type="button" class="voltar-tela" id="btn-voltar" hidden><i data-icon="back"></i><span id="voltar-texto">Voltar</span></button>
 
       <!-- 1. Visão geral -->
       <section class="view" id="view-visao">
@@ -73,11 +127,11 @@
               <div class="painel-topo"><h2>Completude dos dados</h2><span class="verde" data-icon="shield"></span></div>
               <div class="completude">
                 <div class="donut" id="donut"><span id="donut-valor">0%</span></div>
-                <div class="completude-info"><p id="c-completos"></p><p id="c-pendentes"></p><small>Ótimo progresso. Faltam poucas evidências para concluir.</small></div>
+                <div class="completude-info"><p id="c-completos"></p><p id="c-pendentes"></p><small id="c-dica"></small></div>
               </div>
             </div>
             <div class="painel">
-              <div class="painel-topo"><h2>Atividade recente</h2><a href="#" class="link-pequeno">Ver histórico</a></div>
+              <div class="painel-topo"><h2>Atividade recente</h2><a href="#" class="link-pequeno" data-view="historico">Ver histórico</a></div>
               <div id="atividade"></div>
             </div>
           </div>
@@ -89,7 +143,10 @@
         <p class="pre-titulo">Gestão de dados</p>
         <div class="cab">
           <div><h1 class="titulo">Indicadores</h1><p class="sub">Acompanhe metas, valores atuais e tendências de cada indicador ESG.</p></div>
-          <button class="btn-primario" data-novo><i data-icon="plus"></i>Novo indicador</button>
+          <div class="cab-acoes">
+            <button class="btn-secundario btn-com-icone" data-ver-arquivados="indicadores"><i data-icon="archive"></i>Ver arquivados</button>
+            <button class="btn-primario" data-novo data-perm="indicadores"><i data-icon="plus"></i>Novo indicador</button>
+          </div>
         </div>
         <div class="chips">
           <button class="chip ativo" data-filter="todos">Todos</button>
@@ -105,13 +162,13 @@
         <p class="pre-titulo">Rastreabilidade</p>
         <h1 class="titulo">Evidências</h1>
         <p class="sub">Cada dado reportado precisa de um comprovante. Envie e revise documentos aqui.</p>
-        <div class="dropzone" id="dropzone">
+        <div class="dropzone" id="dropzone" data-perm="evidencias">
           <span class="dz-icone" data-icon="upload"></span>
           <strong>Arraste arquivos para cá</strong>
-          <small>PDF, planilhas ou imagens de até 20 MB</small>
-          <button class="btn-primario" id="btn-arquivos">Selecionar arquivos</button>
-          <input type="file" id="input-arquivos" multiple hidden>
+          <small>PDF, planilhas (XLSX, XLS, CSV), DOCX ou imagens (PNG, JPG) de até 10 MB</small>
+          <button class="btn-primario" id="btn-nova-ev"><i data-icon="plus"></i>Nova evidência</button>
         </div>
+        <p class="mensagem-erro" id="ev-erro" role="alert"></p>
         <div class="painel sem-pad">
           <h2 class="painel-titulo">Documentos enviados</h2>
           <div id="lista-docs"></div>
@@ -123,10 +180,14 @@
         <p class="pre-titulo">Transparência</p>
         <div class="cab">
           <div><h1 class="titulo">Relatórios</h1><p class="sub">Transforme seus indicadores em relatórios prontos para compartilhar.</p></div>
-          <button class="btn-primario" id="btn-novo-rel"><i data-icon="plus"></i>Novo relatório</button>
+          <div class="cab-acoes">
+            <button class="btn-secundario btn-com-icone" data-ver-arquivados="relatorios"><i data-icon="archive"></i>Ver arquivados</button>
+            <button class="btn-primario" id="btn-novo-rel" data-perm="relatorios"><i data-icon="plus"></i>Novo relatório</button>
+          </div>
         </div>
         <h2 class="secao-titulo">Modelos disponíveis</h2>
         <div class="grade-3" id="modelos"></div>
+        <p class="mensagem-erro" id="rel-erro" role="alert"></p>
         <div class="painel sem-pad">
           <h2 class="painel-titulo">Relatórios gerados</h2>
           <div id="lista-rel"></div>
@@ -136,8 +197,11 @@
       <!-- 5. Pendências -->
       <section class="view" id="view-pendencias" hidden>
         <p class="pre-titulo">Rotina</p>
-        <h1 class="titulo">Pendências</h1>
-        <p class="sub" id="sub-pend"></p>
+        <div class="cab">
+          <div><h1 class="titulo">Pendências</h1><p class="sub" id="sub-pend"></p></div>
+          <button class="btn-primario" id="btn-nova-pend" data-perm="pendencias"><i data-icon="plus"></i>Nova pendência</button>
+        </div>
+        <p class="mensagem-erro" id="pend-erro" role="alert"></p>
         <div class="painel sem-pad" id="lista-pend"></div>
       </section>
 
@@ -146,8 +210,13 @@
         <p class="pre-titulo">Pessoas</p>
         <div class="cab">
           <div><h1 class="titulo">Equipe</h1><p class="sub">Quem cuida de cada indicador e de cada evidência.</p></div>
-          <button class="btn-primario" id="btn-convidar"><i data-icon="users"></i>Convidar pessoa</button>
+          <button class="btn-primario" id="btn-convidar" data-perm="equipe"><i data-icon="users"></i>Convidar pessoa</button>
         </div>
+        <div class="chips" id="chips-equipe" role="group" aria-label="Filtrar membros">
+          <button class="chip ativo" data-equipe="ativos" aria-pressed="true">Ativos</button>
+          <button class="chip" data-equipe="inativos" aria-pressed="false">Inativos</button>
+        </div>
+        <p class="mensagem-erro" id="equipe-erro" role="alert"></p>
         <div class="grade-3" id="grade-equipe"></div>
       </section>
 
@@ -159,19 +228,127 @@
         <div class="grade-2">
           <div class="painel">
             <h2>Dados da empresa</h2>
-            <label class="campo">Nome da organização<input type="text" id="cfg-nome" value="Empresa Exemplo Ltda."></label>
-            <label class="campo">Setor<input type="text" id="cfg-setor" value="Indústria de transformação"></label>
-            <label class="campo">Meta do índice ESG para 2026<input type="number" id="cfg-meta" value="90" min="0" max="100"></label>
-            <button class="btn-primario" id="cfg-salvar">Salvar alterações</button>
+            <p class="sem-permissao" data-perm-aviso="config">Somente administradores podem alterar os dados da empresa.</p>
+            <label class="campo">Nome da organização<input type="text" id="cfg-nome" value="Empresa Exemplo Ltda." data-perm-desativar="config"></label>
+            <label class="campo">Setor<input type="text" id="cfg-setor" value="Indústria de transformação" data-perm-desativar="config"></label>
+            <label class="campo">Meta do índice ESG para 2026<input type="number" id="cfg-meta" value="90" min="0" max="100" data-perm-desativar="config"></label>
+            <button class="btn-primario" id="cfg-salvar" data-perm="config">Salvar alterações</button>
             <span class="salvo" id="cfg-salvo" hidden>Alterações salvas.</span>
           </div>
           <div class="painel">
             <h2>Notificações</h2>
-            <label class="toggle-linha"><span>Prazos de indicadores<small>Aviso 7 dias antes do vencimento</small></span><input type="checkbox" class="switch" checked></label>
-            <label class="toggle-linha"><span>Novas evidências<small>Quando alguém enviar um documento</small></span><input type="checkbox" class="switch" checked></label>
-            <label class="toggle-linha"><span>Resumo semanal<small>E-mail com o desempenho da semana</small></span><input type="checkbox" class="switch" checked></label>
+            <p class="painel-sub painel-sub-espaco">Escolha o que aparece no sino. Vale só para você, neste navegador.</p>
+            <label class="toggle-linha"><span>Prazos de indicadores<small>Indicadores desatualizados e pendências vencendo em até 7 dias</small></span><input type="checkbox" class="switch" id="notif-prazos" checked></label>
+            <label class="toggle-linha"><span>Novas evidências<small>Evidências para revisar e revisões das que você enviou</small></span><input type="checkbox" class="switch" id="notif-evidencias" checked></label>
+            <label class="toggle-linha"><span>Atividade da equipe<small>O que outras pessoas fizeram recentemente</small></span><input type="checkbox" class="switch" id="notif-atividade" checked></label>
           </div>
         </div>
+        <p class="nota-config">A troca de senha agora fica em <a href="#" data-view="perfil">Meu perfil</a>.</p>
+      </section>
+
+      <!-- 9. Notificações -->
+      <section class="view" id="view-notificacoes" hidden>
+        <p class="pre-titulo">Central de avisos</p>
+        <div class="cab">
+          <div><h1 class="titulo">Notificações</h1><p class="sub" id="sub-notif"></p></div>
+          <button class="btn-secundario btn-com-icone" id="btn-notif-lidas"><i data-icon="check"></i>Marcar todas como lidas</button>
+        </div>
+        <div class="chips" role="group" aria-label="Filtrar notificações">
+          <button class="chip ativo" data-notif="todas" aria-pressed="true">Todas</button>
+          <button class="chip" data-notif="nao-lidas" aria-pressed="false">Não lidas</button>
+        </div>
+        <div class="painel sem-pad sem-margem" id="lista-notif"></div>
+        <p class="nota-config">Escolha o que aparece aqui em <a href="#" data-view="config">Configurações → Notificações</a>.</p>
+      </section>
+
+      <!-- 10. Meu perfil -->
+      <section class="view" id="view-perfil" hidden>
+        <p class="pre-titulo">Conta</p>
+        <h1 class="titulo">Meu perfil</h1>
+        <p class="sub">Seus dados, o que o seu perfil de acesso permite e o que está sob sua responsabilidade.</p>
+        <div class="painel" id="perfil-carregando" hidden></div>
+        <div id="perfil-conteudo">
+        <div class="card perfil-cab">
+          <span class="avatar perfil-avatar" id="perfil-sigla"></span>
+          <div class="perfil-id">
+            <h2 id="perfil-nome"></h2>
+            <p id="perfil-cargo"></p>
+            <p class="perfil-email" id="perfil-email"></p>
+          </div>
+          <div class="perfil-pills" id="perfil-pills"></div>
+        </div>
+        <div class="grade-3 perfil-numeros" id="perfil-numeros"></div>
+        <div class="grade-2 grade-espaco">
+          <div class="painel">
+            <h2>Dados pessoais</h2>
+            <form id="perfil-form" novalidate>
+              <label class="campo">Nome<input type="text" id="perfil-in-nome" maxlength="120" autocomplete="name" required></label>
+              <label class="campo">Cargo<input type="text" id="perfil-in-cargo" maxlength="100" autocomplete="organization-title"></label>
+              <label class="campo">Área de foco
+                <select id="perfil-in-foco">
+                  <option value="ambiental">Ambiental</option>
+                  <option value="social">Social</option>
+                  <option value="governanca">Governança</option>
+                </select>
+              </label>
+              <label class="campo">E-mail<input type="email" id="perfil-in-email" disabled>
+                <small class="dica">Para trocar o e-mail, fale com um administrador.</small></label>
+              <p class="mensagem-erro" id="perfil-erro" role="alert"></p>
+              <button type="submit" class="btn-primario" id="perfil-salvar">Salvar dados</button>
+              <span class="salvo" id="perfil-ok" hidden>Dados salvos.</span>
+            </form>
+          </div>
+          <div class="painel">
+            <h2>Alterar senha</h2>
+            <label class="campo">Senha atual<input type="password" id="sn-atual" autocomplete="current-password"></label>
+            <label class="campo">Nova senha (mínimo 8 caracteres)<input type="password" id="sn-nova" autocomplete="new-password"></label>
+            <label class="campo">Repita a nova senha<input type="password" id="sn-repetir" autocomplete="new-password"></label>
+            <p class="mensagem-erro" id="sn-erro"></p>
+            <button class="btn-primario" id="sn-salvar">Alterar senha</button>
+            <span class="salvo" id="sn-ok" hidden>Senha alterada.</span>
+          </div>
+        </div>
+        <div class="grade-2 grade-espaco">
+          <div class="painel">
+            <h2>O que o seu perfil permite</h2>
+            <ul class="permissoes" id="perfil-permissoes"></ul>
+          </div>
+          <div class="painel">
+            <div class="painel-topo"><h2>Minha atividade recente</h2><a href="#" class="link-pequeno" data-view="historico">Ver histórico</a></div>
+            <div id="perfil-atividade"></div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- 11. Histórico de atividades -->
+      <section class="view" id="view-historico" hidden>
+        <p class="pre-titulo">Auditoria</p>
+        <h1 class="titulo">Histórico de atividades</h1>
+        <p class="sub" id="sub-historico">Tudo o que foi feito no Evidra, do mais recente ao mais antigo.</p>
+        <div class="chips" role="group" aria-label="Filtrar histórico">
+          <button class="chip ativo" data-hist-filtro="todos" aria-pressed="true">Todos</button>
+          <button class="chip" data-hist-filtro="chart" aria-pressed="false">Indicadores</button>
+          <button class="chip" data-hist-filtro="file" aria-pressed="false">Evidências</button>
+          <button class="chip" data-hist-filtro="report" aria-pressed="false">Relatórios</button>
+          <button class="chip" data-hist-filtro="clip" aria-pressed="false">Pendências</button>
+          <button class="chip" data-hist-filtro="users" aria-pressed="false">Equipe</button>
+        </div>
+        <p class="mensagem-erro" id="historico-erro" role="alert"></p>
+        <div class="painel sem-pad sem-margem" id="lista-historico"></div>
+      </section>
+
+      <!-- 12. Arquivados -->
+      <section class="view" id="view-arquivados" hidden>
+        <p class="pre-titulo">Arquivo</p>
+        <h1 class="titulo">Arquivados</h1>
+        <p class="sub">Itens arquivados saem das listas, mas nada é apagado: o histórico e as evidências continuam guardados. Restaure quando precisar.</p>
+        <div class="chips" role="group" aria-label="Tipo de item arquivado">
+          <button class="chip ativo" data-arq="indicadores" aria-pressed="true">Indicadores <span class="chip-qtd" id="arq-qtd-indicadores"></span></button>
+          <button class="chip" data-arq="relatorios" aria-pressed="false">Relatórios <span class="chip-qtd" id="arq-qtd-relatorios"></span></button>
+        </div>
+        <p class="mensagem-erro" id="arq-erro" role="alert"></p>
+        <div class="painel sem-pad sem-margem" id="lista-arquivados"></div>
       </section>
 
       <!-- 8. Ajuda -->
@@ -180,7 +357,8 @@
         <h1 class="titulo">Ajuda e suporte</h1>
         <p class="sub">Perguntas frequentes e canais de atendimento.</p>
         <div class="ajuda-grade">
-          <div class="painel sem-pad faq">
+          <div class="painel sem-pad faq" id="faq">
+            <p class="vazio" id="faq-vazio" hidden></p>
             <details><summary>O que é ESG?</summary><p>Sigla em inglês para Ambiental, Social e Governança: os três pilares usados para medir o impacto e a gestão responsável de uma empresa.</p></details>
             <details><summary>Como cadastro um novo indicador?</summary><p>Clique em “Novo indicador”, informe nome, categoria, valor e progresso da meta, e salve.</p></details>
             <details><summary>Por que preciso enviar evidências?</summary><p>Cada dado reportado precisa de um comprovante para ser auditável e confiável em relatórios.</p></details>
@@ -210,6 +388,12 @@
       <input type="text" id="f-valor" placeholder="Valor (ex: 120 t)">
       <input type="number" id="f-prog" placeholder="Progresso da meta (%)" min="0" max="100">
     </div>
+    <div class="anexos">
+      <button type="button" class="btn-secundario btn-anexar" id="f-anexar"><i data-icon="paperclip"></i>Anexar evidências</button>
+      <small class="dica">Opcional · PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 10 MB cada</small>
+      <input type="file" id="f-arquivos" multiple hidden accept=".pdf,.xlsx,.xls,.csv,.docx,.png,.jpg,.jpeg">
+      <ul class="ev-selecionados" id="f-anexos" aria-label="Arquivos anexados"></ul>
+    </div>
     <p class="mensagem-erro" id="f-erro"></p>
     <div class="acoes-form">
       <button type="button" id="f-cancelar" class="btn-secundario">Cancelar</button>
@@ -217,19 +401,278 @@
     </div>
   </div>
 </dialog>
-
-<dialog id="login">
-  <div class="formulario">
-    <h2>Entrar no Evidra</h2>
-    <div class="linha-form"><input type="email" id="l-email" placeholder="E-mail"></div>
-    <div class="linha-form"><input type="password" id="l-senha" placeholder="Senha"></div>
-    <p class="mensagem-erro" id="l-erro"></p>
+<dialog id="modal-ev" aria-labelledby="ev-titulo">
+  <form class="formulario" id="ev-form" novalidate>
+    <h2 id="ev-titulo">Nova evidência</h2>
+    <label class="campo">Indicador
+      <select id="ev-indicador"></select>
+    </label>
+    <label class="campo">Arquivo(s)
+      <input type="file" id="ev-arquivos" multiple accept=".pdf,.xlsx,.xls,.csv,.docx,.png,.jpg,.jpeg">
+      <small class="dica">PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 10 MB cada</small>
+    </label>
+    <ul class="ev-selecionados" id="ev-selecionados"></ul>
+    <label class="campo">Descrição (opcional)
+      <input type="text" id="ev-descricao" maxlength="255" placeholder="Ex.: fatura de energia de setembro">
+    </label>
+    <p class="mensagem-erro" id="ev-form-erro" role="alert"></p>
     <div class="acoes-form">
-      <button type="button" id="l-entrar" class="btn-primario">Entrar</button>
+      <button type="button" id="ev-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="ev-enviar" class="btn-primario">Enviar evidência</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-pend" aria-labelledby="pend-titulo">
+  <form class="formulario" id="pend-form" novalidate>
+    <h2 id="pend-titulo">Nova pendência</h2>
+    <label class="campo">Título
+      <input type="text" id="pend-texto" maxlength="255" required placeholder="Ex.: Coletar faturas de energia do trimestre">
+    </label>
+    <label class="campo">Indicador (opcional)
+      <select id="pend-indicador"></select>
+    </label>
+    <div class="linha-form">
+      <label class="campo">Responsável
+        <select id="pend-resp" required></select>
+      </label>
+      <label class="campo">Prazo
+        <input type="date" id="pend-prazo" required>
+      </label>
+    </div>
+    <label class="campo">Prioridade
+      <select id="pend-prio">
+        <option value="alta">Alta</option>
+        <option value="media" selected>Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+    </label>
+    <p class="mensagem-erro" id="pend-form-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="pend-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="pend-salvar" class="btn-primario">Criar pendência</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-convite" aria-labelledby="convite-titulo">
+  <form class="formulario" id="convite-form" novalidate>
+    <h2 id="convite-titulo">Convidar pessoa</h2>
+    <label class="campo">Nome
+      <input type="text" id="convite-nome" maxlength="100" required>
+    </label>
+    <label class="campo">E-mail
+      <input type="email" id="convite-email" maxlength="150" required>
+    </label>
+    <label class="campo">Perfil
+      <select id="convite-role">
+        <option value="responsavel" selected>Responsável por dados</option>
+        <option value="auditor">Auditor</option>
+        <option value="admin">Administrador</option>
+      </select>
+      <small class="dica" id="convite-dica"></small>
+    </label>
+    <p class="mensagem-erro" id="convite-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="convite-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="convite-enviar" class="btn-primario">Convidar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-desativar" aria-labelledby="desativar-titulo">
+  <form class="formulario" id="desativar-form" novalidate>
+    <h2 id="desativar-titulo">Desativar membro?</h2>
+    <p class="confirmar-texto" id="desativar-texto"></p>
+    <div id="desativar-transferir" hidden>
+      <p class="confirmar-texto" id="desativar-pendente"></p>
+      <label class="campo">Quem vai assumir
+        <select id="desativar-para"></select>
+      </label>
+    </div>
+    <p class="mensagem-erro" id="desativar-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="desativar-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="desativar-confirmar" class="btn-perigo">Desativar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-rejeitar" aria-labelledby="rejeitar-titulo">
+  <form class="formulario" id="rejeitar-form" novalidate>
+    <h2 id="rejeitar-titulo">Rejeitar evidência</h2>
+    <p class="confirmar-texto" id="rejeitar-arquivo"></p>
+    <label class="campo">Motivo da rejeição
+      <textarea id="rejeitar-nota" maxlength="255" rows="3" required placeholder="Ex.: a fatura é de outro mês; envie a de setembro."></textarea>
+      <small class="dica">Quem enviou verá este motivo na lista de evidências.</small>
+    </label>
+    <p class="mensagem-erro" id="rejeitar-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="rejeitar-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="rejeitar-confirmar" class="btn-perigo">Rejeitar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-atualizar" aria-labelledby="atu-titulo">
+  <form class="formulario" id="atu-form" novalidate>
+    <h2 id="atu-titulo">Atualizar indicador</h2>
+    <p class="confirmar-texto" id="atu-nome"></p>
+    <fieldset class="escolhas">
+      <legend class="sr-only">Como atualizar</legend>
+      <label class="escolha"><input type="radio" name="atu-modo" value="confirmar" checked>
+        <span><strong>Confirmar o valor atual</strong><small id="atu-atual"></small></span></label>
+      <label class="escolha"><input type="radio" name="atu-modo" value="novo">
+        <span><strong>Informar um novo valor</strong><small>Registra uma nova medição no histórico.</small></span></label>
+    </fieldset>
+    <div class="linha-form" id="atu-novo" hidden>
+      <label class="campo">Novo valor <span class="unidade" id="atu-unidade"></span>
+        <input type="text" id="atu-valor" inputmode="decimal" placeholder="Ex.: 1.250 ou 45,5">
+      </label>
+      <label class="campo">Data de referência
+        <input type="date" id="atu-periodo">
+      </label>
+    </div>
+    <p class="mensagem-erro" id="atu-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="atu-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="atu-salvar" class="btn-primario">Confirmar valor</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-ind" aria-labelledby="ind-titulo">
+  <form class="formulario" id="ind-form" novalidate>
+    <h2 id="ind-titulo">Editar indicador</h2>
+    <label class="campo">Nome
+      <input type="text" id="ind-nome" maxlength="150" required>
+    </label>
+    <div class="linha-form">
+      <label class="campo">Pilar
+        <select id="ind-cat"><option>Ambiental</option><option>Social</option><option>Governança</option></select>
+      </label>
+      <label class="campo">Unidade
+        <input type="text" id="ind-unidade" maxlength="30" placeholder="Ex.: tCO₂e, %, m³">
+      </label>
+    </div>
+    <div class="linha-form">
+      <label class="campo">Progresso da meta (%)
+        <input type="number" id="ind-prog" min="0" max="100" step="1" required>
+      </label>
+      <label class="campo">Atualizar a cada (dias)
+        <input type="number" id="ind-freq" min="1" max="3650" step="1" required>
+      </label>
+    </div>
+    <label class="campo">Responsável
+      <select id="ind-dono"></select>
+    </label>
+    <p class="mensagem-erro" id="ind-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="ind-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="ind-salvar" class="btn-primario">Salvar alterações</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-hist" class="dialog-largo" aria-labelledby="hist-titulo">
+  <div class="formulario">
+    <div class="hist-topo">
+      <div><h2 id="hist-titulo">Histórico</h2><p class="painel-sub" id="hist-sub"></p></div>
+      <button type="button" class="btn-icone" id="hist-fechar" aria-label="Fechar histórico">×</button>
+    </div>
+    <div class="grafico" id="hist-grafico"></div>
+    <div class="tabela-rolagem">
+      <table class="tabela" id="hist-tabela">
+        <caption class="sr-only">Registros do indicador</caption>
+        <thead><tr><th scope="col">Data de referência</th><th scope="col" class="num">Valor</th><th scope="col">Registrado por</th><th scope="col">Registrado em</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </dialog>
-
+<dialog id="modal-confirmar" aria-labelledby="conf-titulo">
+  <div class="formulario">
+    <h2 id="conf-titulo"></h2>
+    <p class="confirmar-texto" id="conf-texto"></p>
+    <div class="acoes-form">
+      <button type="button" id="conf-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="button" id="conf-ok" class="btn-perigo"></button>
+    </div>
+  </div>
+</dialog>
+<dialog id="modal-rel" aria-labelledby="rel-titulo">
+  <form class="formulario" id="rel-form" novalidate>
+    <h2 id="rel-titulo">Novo relatório</h2>
+    <label class="campo">Modelo
+      <select id="rel-modelo">
+        <option value="mensal">Relatório mensal</option>
+        <option value="semestral">Relatório parcial/semestral</option>
+        <option value="anual">Relatório anual</option>
+        <option value="intervalo">Definir intervalo</option>
+      </select>
+    </label>
+    <div class="linha-form" data-rel-modo="mensal">
+      <label class="campo">Mês
+        <select id="rel-mes"></select>
+      </label>
+      <label class="campo">Ano
+        <input type="number" id="rel-ano-m" min="2000" max="2100" step="1">
+      </label>
+    </div>
+    <div class="linha-form" data-rel-modo="semestral" hidden>
+      <label class="campo">Semestre
+        <select id="rel-semestre"><option value="1">1º semestre (jan–jun)</option><option value="2">2º semestre (jul–dez)</option></select>
+      </label>
+      <label class="campo">Ano
+        <input type="number" id="rel-ano-s" min="2000" max="2100" step="1">
+      </label>
+    </div>
+    <div class="linha-form" data-rel-modo="anual" hidden>
+      <label class="campo">Ano
+        <input type="number" id="rel-ano-a" min="2000" max="2100" step="1">
+      </label>
+    </div>
+    <div class="linha-form" data-rel-modo="intervalo" hidden>
+      <label class="campo">Início
+        <input type="date" id="rel-inicio">
+      </label>
+      <label class="campo">Fim
+        <input type="date" id="rel-fim">
+      </label>
+    </div>
+    <label class="campo">Nome do relatório
+      <input type="text" id="rel-nome" maxlength="200">
+    </label>
+    <p class="mensagem-erro" id="rel-form-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="rel-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="rel-gerar" class="btn-primario">Gerar relatório</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="modal-excluir" aria-labelledby="excluir-titulo">
+  <div class="formulario">
+    <h2 id="excluir-titulo">Excluir pendência?</h2>
+    <p class="confirmar-texto" id="excluir-texto"></p>
+    <div class="acoes-form">
+      <button type="button" id="excluir-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="button" id="excluir-confirmar" class="btn-perigo">Excluir</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="modal-pessoa" class="dialog-largo" aria-labelledby="pessoa-titulo">
+  <div class="formulario">
+    <div class="hist-topo">
+      <div class="pessoa-det-topo">
+        <span class="avatar grande" id="pessoa-avatar"></span>
+        <div><h2 id="pessoa-titulo"></h2><p class="painel-sub" id="pessoa-sub"></p></div>
+      </div>
+      <button type="button" class="btn-icone" id="pessoa-fechar" aria-label="Fechar informações do membro">×</button>
+    </div>
+    <div id="pessoa-corpo"></div>
+  </div>
+</dialog>
+<div class="aviso" id="aviso" role="alert" aria-live="assertive" hidden>
+  <div class="aviso-corpo">
+    <strong id="aviso-titulo"></strong>
+    <ul id="aviso-lista"></ul>
+    <p id="aviso-dica"></p>
+  </div>
+  <button type="button" class="btn-icone" id="aviso-fechar" aria-label="Fechar aviso">×</button>
+</div>
 <script src="App.js"></script>
 </body>
 </html>
