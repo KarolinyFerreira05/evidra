@@ -100,7 +100,6 @@ button{cursor:pointer;font-weight:600}
 .titulo{font-size:32px;font-weight:800;letter-spacing:-.02em}
 .sub{color:var(--muted);font-size:14px;margin-top:4px;margin-bottom:1.5rem}
 .cab .sub{margin-bottom:0}
-.periodo{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .secao-titulo{font-size:16px;margin-bottom:12px}
 .grade-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem}
 .grade-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}

@@ -1518,8 +1518,14 @@ const ultimoDia = (ano, mes) => new Date(ano, mes, 0).getDate(); // mes 1-12
 const pad = n => String(n).padStart(2, "0");
 let nomeEditado = false;
 
-// {inicio, fim, rotulo} for the chosen model, or {erro}
+// {inicio, fim, rotulo} for the chosen model, or {erro}; a report only covers dates up to today
 function periodoRelatorio() {
+  const p = periodoEscolhido();
+  if (!p.erro && p.fim > hojeISO())
+    return { erro: `Esse período termina em ${isoParaBR(p.fim)}, depois de hoje. Escolha um período que já tenha terminado.` };
+  return p;
+}
+function periodoEscolhido() {
   const modelo = tipoPeriodoRel();
   const ano = id => { const v = $(id).value.trim(); return /^\d{4}$/.test(v) && +v >= 2000 && +v <= 2100 ? +v : null; };
   if (modelo === "mensal") {
@@ -1549,19 +1555,27 @@ function atualizarFormRelatorio() {
   document.querySelectorAll("[data-rel-modo]").forEach(g => { g.hidden = g.dataset.relModo !== tipo; });
   const p = periodoRelatorio();
   if (!nomeEditado && !p.erro) $("rel-nome").value = `${NOMES_MODELO[modelo]} – ${p.rotulo}`;
+  // a future period is flagged right away, not only when "Gerar" is clicked
+  const futuro = p.erro && p.erro.includes("depois de hoje");
+  $("rel-form-erro").textContent = futuro ? p.erro : "";
+  $("rel-form-erro").style.display = futuro ? "block" : "none";
+  $("rel-gerar").disabled = !!futuro;
 }
 function abrirNovoRelatorio(modelo = "mensal") {
   $("rel-form").reset();
   nomeEditado = false;
   const hoje = new Date(), ano = hoje.getFullYear(), mes = hoje.getMonth() + 1;
-  // defaults: the last full month, the current semester, the current year, this month so far
+  // defaults: the last full month, the last full semester, the last full year, this month so far
+  // (periods that end after today are refused, here and on the server)
   const mesAnterior = mes === 1 ? 12 : mes - 1, anoMesAnterior = mes === 1 ? ano - 1 : ano;
   $("rel-mes").innerHTML = MESES.map((n, k) => `<option value="${k + 1}">${n[0].toUpperCase() + n.slice(1)}</option>`).join("");
   $("rel-mes").value = mesAnterior;
   $("rel-ano-m").value = anoMesAnterior;
-  $("rel-semestre").value = mes <= 6 ? "1" : "2";
-  $("rel-ano-s").value = ano;
-  $("rel-ano-a").value = ano;
+  $("rel-semestre").value = mes <= 6 ? "2" : "1";
+  $("rel-ano-s").value = mes <= 6 ? ano - 1 : ano;
+  $("rel-ano-a").value = ano - 1;
+  ["rel-ano-m", "rel-ano-s", "rel-ano-a"].forEach(id => { $(id).max = ano; });
+  $("rel-inicio").max = $("rel-fim").max = hojeISO();
   $("rel-inicio").value = `${ano}-${pad(mes)}-01`;
   $("rel-fim").value = hojeISO();
   // only admin and auditor may create the audit package (the server checks it too)

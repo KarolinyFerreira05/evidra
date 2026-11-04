@@ -151,6 +151,9 @@ public class ReportController {
         if (inicio.plusYears(10).isBefore(fim)) throw new ApiErro(400, "O período pode ter no máximo 10 anos.");
         // the model must match the dates, so the period text is always true
         if (!coerente(tipo, inicio, fim)) throw new ApiErro(400, "O período não corresponde ao modelo escolhido.");
+        // a report describes what already happened: no period may end after today
+        if (fim.isAfter(LocalDate.now(ZONA)))
+            throw new ApiErro(400, "Esse período termina em " + fim.format(BR) + ", depois de hoje. Escolha um período que já tenha terminado.");
 
         String nome = str(body.get("nome"));
         if (nome.isEmpty()) nome = MODELOS.get(modelo) + " – " + textoPeriodo(modelo, inicio, fim);
