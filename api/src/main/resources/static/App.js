@@ -64,7 +64,9 @@ const PERMISSOES = {
   equipe: ["admin"],
   config: ["admin"],
   revisar: ["admin", "auditor"],
-  publicar: ["admin", "auditor"] // whoever drafts the report is not necessarily who signs it off
+  publicar: ["admin", "auditor"], // whoever drafts the report is not necessarily who signs it off
+  importar: ["admin", "responsavel"],
+  auditoria: ["admin", "auditor"] // "Pacote de auditoria" report model
 };
 const usuarioAtual = () => JSON.parse(localStorage.getItem('usuario') || '{}');
 const pode = acao => (PERMISSOES[acao] || []).includes(usuarioAtual().role);
@@ -137,6 +139,18 @@ function hidratarIcones() { document.querySelectorAll("[data-icon]").forEach(e =
 
 // ================= Dados de exemplo =================
 const CATEGORIAS = [{ nome: "Ambiental", letra: "E" }, { nome: "Social", letra: "S" }, { nome: "Governança", letra: "G" }];
+// tags an indicator can carry (the server accepts only these: IndicatorController.GRI / ODS)
+const GRI_OPCOES = { 205: "Anticorrupção", 302: "Energia", 303: "Água e efluentes", 305: "Emissões", 306: "Resíduos",
+  401: "Emprego", 403: "Saúde e segurança", 404: "Treinamento", 405: "Diversidade" };
+const ODS_OPCOES = { 9: "Indústria, inovação e infraestrutura", 12: "Consumo e produção responsáveis", 13: "Ação contra a mudança global do clima" };
+document.querySelectorAll("[data-opcoes-gri]").forEach(s => {
+  s.innerHTML = `<option value="">Sem GRI</option>` + Object.entries(GRI_OPCOES).map(([c, n]) => `<option value="${c}">GRI ${c} – ${n}</option>`).join("");
+});
+document.querySelectorAll("[data-opcoes-ods]").forEach(s => {
+  s.innerHTML = `<option value="">Sem ODS</option>` + Object.entries(ODS_OPCOES).map(([n, t]) => `<option value="${n}">ODS ${n} – ${t}</option>`).join("");
+});
+const tagsIndicador = i => (i.griCodigo ? `<span class="pill tag-gri" title="GRI ${esc(i.griCodigo)} – ${esc(GRI_OPCOES[i.griCodigo] || "")}">GRI ${esc(i.griCodigo)}</span>` : "")
+  + (i.ods ? `<span class="pill tag-ods" title="ODS ${esc(i.ods)} – ${esc(ODS_OPCOES[i.ods] || "")}">ODS ${esc(i.ods)}</span>` : "");
 let metaESG = 90;
 
 let indicadores = [];
@@ -154,7 +168,8 @@ const modelos = [
   { chave: "mensal", nome: "Relatório mensal", desc: "Valores e evidências de um mês" },
   { chave: "semestral", nome: "Relatório parcial/semestral", desc: "Primeiro ou segundo semestre do ano" },
   { chave: "anual", nome: "Relatório anual", desc: "O ano completo, de janeiro a dezembro" },
-  { chave: "intervalo", nome: "Definir intervalo", desc: "Qualquer período, de uma data a outra" }
+  { chave: "intervalo", nome: "Definir intervalo", desc: "Qualquer período, de uma data a outra" },
+  { chave: "auditoria", nome: "Pacote de auditoria", desc: "Valores, evidências, revisões e lacunas do período", perm: "auditoria" }
 ];
 let relatorios = [
   { nome: "Relatório ESG 2025", data: "15/03/2026", status: "Publicado" },
@@ -260,7 +275,8 @@ function renderAtividade() {
 
 let filtro = "todos";
 function renderIndicadores() {
-  const l = indicadores.filter(i => (filtro === "todos" || i.cat === filtro) && bate(i.nome, i.cat, i.status, i.dono, i.unidade));
+  const l = indicadores.filter(i => (filtro === "todos" || i.cat === filtro)
+    && bate(i.nome, i.cat, i.status, i.dono, i.unidade, i.griCodigo && "GRI " + i.griCodigo, i.ods && "ODS " + i.ods));
   $("grade-indicadores").innerHTML = l.length ? l.map(i => `
     <div class="card ind-card">
       <div class="card-topo"><span>${i.cat}</span>
@@ -270,6 +286,7 @@ function renderIndicadores() {
           <span class="pill ${corStatus(i.status)}">${i.status}</span>
         </span></div>
       <p class="nome">${esc(i.nome)}</p>
+      ${i.griCodigo || i.ods ? `<div class="ind-tags">${tagsIndicador(i)}</div>` : ""}
       <div class="valor-linha"><span class="valor">${esc(i.valor)}</span>
         <span class="tend">${ic(i.tend < 0 ? "down" : "up")} ${i.tend > 0 ? "+" : ""}${Number(i.tend).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span></div>
       <div class="prog-linha"><span>Progresso da meta</span><b>${i.prog}%</b></div>
@@ -314,7 +331,7 @@ function renderRelatorios() {
   $("modelos").innerHTML = modelos.map((m, k) => `
     <div class="card modelo"><span class="ic-caixa ouro">${ic("report")}</span>
       <h3>${m.nome}</h3><p>${m.desc}</p>
-      ${pode("relatorios") ? `<button class="btn-secundario btn-mini" data-modelo="${k}">Usar modelo</button>` : ""}</div>`).join("");
+      ${pode(m.perm || "relatorios") ? `<button class="btn-secundario btn-mini" data-modelo="${k}">Usar modelo</button>` : ""}</div>`).join("");
   const l = relatorios.filter(r => bate(r.nome, r.modeloNome, r.periodo, r.status, r.data));
   $("lista-rel").innerHTML = l.length ? l.map(r => `
     <div class="linha"><div class="corpo"><strong>${esc(r.nome)}</strong>
@@ -531,6 +548,7 @@ document.addEventListener("click", e => {
     $("f-erro").style.display = "none";
     anexosIndicador = [];
     renderAnexos();
+    exemploValor();
     $("modal").showModal();
   }
 });
@@ -570,6 +588,10 @@ document.querySelectorAll("#view-indicadores .chip").forEach(c => c.addEventList
 }));
 
 // novo indicador
+// the "Valor" example follows the chosen pillar, so it hints at a unit that fits it
+const EXEMPLO_VALOR = { "Ambiental": "Valor (ex: 120 t)", "Social": "Valor (ex: 45%)", "Governança": "Valor (ex: 3 reuniões)" };
+function exemploValor() { $("f-valor").placeholder = EXEMPLO_VALOR[$("f-categoria").value] || "Valor"; }
+$("f-categoria").addEventListener("change", exemploValor);
 $("f-cancelar").addEventListener("click", () => $("modal").close());
 aoClicar("f-add", async () => {
   const nome = $("f-nome").value.trim(), valor = $("f-valor").value.trim();
@@ -586,10 +608,10 @@ aoClicar("f-add", async () => {
   const resp = await fetch(`${API}/indicators`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, cat: $("f-categoria").value, valor, prog })
+    body: JSON.stringify({ nome, cat: $("f-categoria").value, valor, prog, griCodigo: $("f-gri").value || null, ods: $("f-ods").value || null })
   });
   if (!resp.ok) {
-    $("f-erro").textContent = "Não foi possível salvar. Use um valor como 120 t ou 45%.";
+    $("f-erro").textContent = await erroResposta(resp, "Não foi possível salvar. Use um valor como 120 t ou 45%.");
     $("f-erro").style.display = "block"; return;
   }
   const { id } = await resp.json();
@@ -609,7 +631,7 @@ aoClicar("f-add", async () => {
   }
 
   const enviados = anexosIndicador.length - falhas.length;
-  ["f-nome", "f-valor", "f-prog"].forEach(id => { $(id).value = ""; });
+  ["f-nome", "f-valor", "f-prog", "f-gri", "f-ods"].forEach(id => { $(id).value = ""; });
   anexosIndicador = [];
   renderAnexos();
   $("modal").close();
@@ -748,6 +770,8 @@ function abrirEditarIndicador(ind) {
     .filter(p => p.id != null && (p.ativo !== false || p.id === ind.donoId))
     .map(p => `<option value="${p.id}">${esc(p.nome)}${p.ativo === false ? " (inativo)" : ""}</option>`).join("");
   $("ind-dono").value = ind.donoId ?? "";
+  $("ind-gri").value = ind.griCodigo ?? "";
+  $("ind-ods").value = ind.ods ?? "";
   $("ind-erro").style.display = "none";
   $("modal-ind").showModal();
   $("ind-nome").focus();
@@ -759,7 +783,8 @@ $("ind-form").addEventListener("submit", e => {
     const erro = msg => { $("ind-erro").textContent = msg; $("ind-erro").style.display = "block"; };
     const dados = {
       nome: $("ind-nome").value.trim(), cat: $("ind-cat").value, unidade: $("ind-unidade").value.trim(),
-      prog: $("ind-prog").value, frequencia: $("ind-freq").value, donoId: $("ind-dono").value || null
+      prog: $("ind-prog").value, frequencia: $("ind-freq").value, donoId: $("ind-dono").value || null,
+      griCodigo: $("ind-gri").value || null, ods: $("ind-ods").value || null
     };
     if (!dados.nome) return erro("Informe o nome do indicador.");
     if (!/^\d+$/.test(dados.prog) || +dados.prog > 100) return erro("O progresso da meta vai de 0 a 100.");
@@ -796,6 +821,93 @@ $("grade-indicadores").addEventListener("click", e => {
   if (b.dataset.hist) abrirHistorico(ind, b);
   else if (b.dataset.editarInd) abrirEditarIndicador(ind);
   else arquivarIndicador(ind, b);
+});
+
+// ---- CSV: template, export and import (Excel in Portuguese: ";" separator, decimal comma)
+// the token goes in the Authorization header (added by the fetch wrapper), never in a URL
+async function baixarArquivo(rota, nomePadrao) {
+  const resp = await fetch(API + rota).catch(() => null);
+  if (!resp || !resp.ok) throw new Error(await erroResposta(resp, "Não foi possível baixar o arquivo."));
+  const nome = (resp.headers.get("Content-Disposition") || "").match(/filename="?([^";]+)"?/)?.[1] || nomePadrao;
+  const url = URL.createObjectURL(await resp.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: nome });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const erroCsv = msg => { $("csv-erro").textContent = msg; $("csv-erro").style.display = msg ? "block" : "none"; };
+aoClicar("btn-csv-modelo", () => baixarArquivo("/indicators/template.csv", "modelo-indicadores.csv").then(() => erroCsv(""), e => erroCsv(e.message)));
+aoClicar("btn-csv-exportar", () => baixarArquivo("/indicators/export.csv", "indicadores.csv").then(() => erroCsv(""), e => erroCsv(e.message)));
+
+let importValidado = false; // the chosen file was checked and has no line with errors
+function erroImport(msg) { $("import-erro").textContent = msg; $("import-erro").style.display = msg ? "block" : "none"; }
+function limparPrevia() {
+  importValidado = false;
+  $("import-confirmar").disabled = true;
+  $("import-previa").hidden = true;
+  $("import-linhas").innerHTML = "";
+  $("import-resumo").textContent = "";
+  erroImport("");
+}
+$("btn-csv-importar").addEventListener("click", () => {
+  $("import-form").reset();
+  limparPrevia();
+  $("modal-import").showModal();
+  $("import-arquivo").focus();
+});
+$("import-cancelar").addEventListener("click", () => $("modal-import").close());
+
+async function enviarImportacao(confirmar) {
+  const f = $("import-arquivo").files[0];
+  const form = new FormData();
+  form.append("arquivo", f);
+  form.append("confirmar", String(confirmar));
+  const resp = await fetch(`${API}/indicators/import`, { method: "POST", body: form }).catch(() => null);
+  const dados = resp ? await resp.json().catch(() => ({})) : {};
+  return { resp, dados };
+}
+function renderPrevia(d) {
+  $("import-linhas").innerHTML = d.linhas.map(l => `
+    <tr><td class="num">${l.linha}</td><td>${l.nome ? esc(l.nome) : "—"}</td>
+      <td>${l.ok ? `<span class="pill ok">OK</span> <small class="import-acao">${esc(l.acao)}</small>`
+        : `<span class="pill erro">Erro</span><ul class="import-erros">${l.erros.map(e => `<li>${esc(e)}</li>`).join("")}</ul>`}</td></tr>`).join("");
+  $("import-previa").hidden = false;
+  const partes = [`${d.total} ${d.total === 1 ? "linha" : "linhas"}`,
+    `${d.novos} ${d.novos === 1 ? "indicador novo" : "indicadores novos"}`,
+    `${d.novosValores} ${d.novosValores === 1 ? "valor em indicador existente" : "valores em indicadores existentes"}`];
+  if (d.comErros) partes.push(`${d.comErros} ${d.comErros === 1 ? "linha com erro" : "linhas com erro"}: corrija no Excel e escolha o arquivo de novo`);
+  $("import-resumo").textContent = partes.join(" · ");
+}
+$("import-arquivo").addEventListener("change", async () => {
+  limparPrevia();
+  const f = $("import-arquivo").files[0];
+  if (!f) return;
+  if (!/\.csv$/i.test(f.name)) return erroImport("Escolha um arquivo .csv. No Excel, use Salvar como > CSV (separado por ponto e vírgula).");
+  if (f.size > 1024 * 1024) return erroImport("O arquivo passa do limite de 1 MB.");
+  $("import-resumo").textContent = "Verificando o arquivo…";
+  const { resp, dados } = await enviarImportacao(false);
+  if (f !== $("import-arquivo").files[0]) return; // another file was picked meanwhile
+  if (!resp || !resp.ok || !dados.linhas) { $("import-resumo").textContent = ""; return erroImport(dados.erro || "Não foi possível ler o arquivo."); }
+  renderPrevia(dados);
+  importValidado = dados.comErros === 0 && dados.total > 0;
+  $("import-confirmar").disabled = !importValidado;
+});
+$("import-form").addEventListener("submit", e => {
+  e.preventDefault();
+  if (!importValidado) return;
+  ocupar($("import-confirmar"), async () => {
+    const { resp, dados } = await enviarImportacao(true);
+    if (!resp || !resp.ok) {
+      if (dados.linhas) renderPrevia(dados);
+      importValidado = false;
+      return erroImport(dados.erro || "Não foi possível importar. Nada foi salvo.");
+    }
+    $("modal-import").close();
+    await carregar();
+    mostrarSucesso("Importação concluída.",
+      `${dados.novos} ${dados.novos === 1 ? "indicador novo" : "indicadores novos"} e ${dados.novosValores} ${dados.novosValores === 1 ? "valor novo em indicador existente" : "valores novos em indicadores existentes"}.`);
+  }).then(() => { $("import-confirmar").disabled = !importValidado; });
 });
 
 // ---- Histórico: table + a single-series line chart in plain SVG
@@ -1399,14 +1511,16 @@ dz.addEventListener("drop", e => { if (pode("evidencias") && e.dataTransfer.file
 // relatórios
 // ---- Novo relatório: model + matching period inputs, with a suggested (editable) name
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-const NOMES_MODELO = { mensal: "Relatório mensal", semestral: "Relatório parcial", anual: "Relatório anual", intervalo: "Relatório" };
+const NOMES_MODELO = { mensal: "Relatório mensal", semestral: "Relatório parcial", anual: "Relatório anual", intervalo: "Relatório", auditoria: "Pacote de auditoria" };
+// the audit package picks its kind of period; the other models are one kind each
+const tipoPeriodoRel = () => $("rel-modelo").value === "auditoria" ? $("rel-tipo").value : $("rel-modelo").value;
 const ultimoDia = (ano, mes) => new Date(ano, mes, 0).getDate(); // mes 1-12
 const pad = n => String(n).padStart(2, "0");
 let nomeEditado = false;
 
 // {inicio, fim, rotulo} for the chosen model, or {erro}
 function periodoRelatorio() {
-  const modelo = $("rel-modelo").value;
+  const modelo = tipoPeriodoRel();
   const ano = id => { const v = $(id).value.trim(); return /^\d{4}$/.test(v) && +v >= 2000 && +v <= 2100 ? +v : null; };
   if (modelo === "mensal") {
     const a = ano("rel-ano-m"), m = +$("rel-mes").value;
@@ -1430,8 +1544,9 @@ function periodoRelatorio() {
   return { inicio: ini, fim, rotulo: `${isoParaBR(ini)} a ${isoParaBR(fim)}` };
 }
 function atualizarFormRelatorio() {
-  const modelo = $("rel-modelo").value;
-  document.querySelectorAll("[data-rel-modo]").forEach(g => { g.hidden = g.dataset.relModo !== modelo; });
+  const modelo = $("rel-modelo").value, tipo = tipoPeriodoRel();
+  $("rel-tipo-campo").hidden = modelo !== "auditoria";
+  document.querySelectorAll("[data-rel-modo]").forEach(g => { g.hidden = g.dataset.relModo !== tipo; });
   const p = periodoRelatorio();
   if (!nomeEditado && !p.erro) $("rel-nome").value = `${NOMES_MODELO[modelo]} – ${p.rotulo}`;
 }
@@ -1449,7 +1564,9 @@ function abrirNovoRelatorio(modelo = "mensal") {
   $("rel-ano-a").value = ano;
   $("rel-inicio").value = `${ano}-${pad(mes)}-01`;
   $("rel-fim").value = hojeISO();
-  $("rel-modelo").value = modelo;
+  // only admin and auditor may create the audit package (the server checks it too)
+  document.querySelectorAll("[data-perm-opcao]").forEach(o => { o.disabled = o.hidden = !pode(o.dataset.permOpcao); });
+  $("rel-modelo").value = modelo === "auditoria" && !pode("auditoria") ? "mensal" : modelo;
   $("rel-form-erro").style.display = "none";
   atualizarFormRelatorio();
   $("modal-rel").showModal();
@@ -1473,7 +1590,7 @@ $("rel-form").addEventListener("submit", e => {
     const resp = await fetch(`${API}/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, modelo: $("rel-modelo").value, inicio: p.inicio, fim: p.fim })
+      body: JSON.stringify({ nome, modelo: $("rel-modelo").value, periodo: tipoPeriodoRel(), inicio: p.inicio, fim: p.fim })
     }).catch(() => null);
     if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível gerar o relatório."));
     $("modal-rel").close();
@@ -1496,55 +1613,194 @@ async function abrirRelatorio(id, alvoErro = $("rel-erro")) {
   const r = await resp.json();
   if (!aba) { alvoErro.textContent = "O navegador bloqueou a nova aba. Permita pop-ups para este site e tente de novo."; alvoErro.style.display = "block"; return; }
   aba.document.open();
-  aba.document.write(paginaRelatorio(r));
+  aba.document.write(r.modelo === "auditoria" ? paginaAuditoria(r) : paginaRelatorio(r));
   aba.document.close();
   aba.document.getElementById("imprimir").addEventListener("click", () => aba.print());
 }
 function paginaRelatorio(r) {
-  const linhas = r.indicadores.map(i => `
-    <tr class="${i.semDado ? "sem-dado" : ""}">
-      <td><strong>${esc(i.nome)}</strong><br><span class="sub">${esc(i.pilar)}${i.responsavel ? " · " + esc(i.responsavel) : ""}</span></td>
-      <td class="num">${esc(i.valor)}${i.dataValor ? `<br><span class="sub">ref. ${esc(i.dataValor)}</span>` : ""}</td>
-      <td>${esc(i.status)}</td>
-      <td class="num">${esc(String(i.progresso ?? "—"))}%</td>
-      <td>${i.evidencias.length ? `<ul>${i.evidencias.map(e => `<li>${esc(e.nome)} <span class="ev ev-${e.status === "Aprovada" ? "ok" : e.status === "Rejeitada" ? "rej" : "ana"}">${esc(e.status)}</span></li>`).join("")}</ul>` : `<span class="sub">Nenhuma evidência</span>`}</td>
-    </tr>`).join("");
+  const classeEv = s => s === "Aprovada" ? "ok" : s === "Rejeitada" ? "rej" : "ana";
+  const classeStatus = s => s === "Atualizado" ? "ok" : s === "Desatualizado" ? "atr" : "ana";
+  // evidence totals by review state, counted from the snapshot (works for reports generated before this layout)
+  const evs = r.indicadores.flatMap(i => i.evidencias);
+  const contaEv = s => evs.filter(e => classeEv(e.status) === s).length;
+  const semDado = r.indicadores.filter(i => i.semDado).length;
+
+  // one block per pillar, in the usual ESG order; any other pillar goes last
+  const ORDEM = ["Ambiental", "Social", "Governança"];
+  const pilares = [...new Set(r.indicadores.map(i => i.pilar))]
+    .sort((a, b) => (ORDEM.indexOf(a) + 1 || 99) - (ORDEM.indexOf(b) + 1 || 99));
+  const indicador = i => {
+    const prog = i.progresso == null ? null : Math.max(0, Math.min(100, Number(i.progresso)));
+    const detalhes = [i.gri ? "GRI " + esc(i.gri) : "", i.ods ? "ODS " + esc(i.ods) : "", i.responsavel ? esc(i.responsavel) : ""].filter(Boolean).join(" · ");
+    return `<tbody class="ind">
+      <tr class="linha">
+        <td><strong>${esc(i.nome)}</strong>${detalhes ? `<span class="sub">${detalhes}</span>` : ""}</td>
+        <td class="num ${i.semDado ? "falta" : ""}">${esc(i.valor)}${i.dataValor ? `<span class="sub">ref. ${esc(i.dataValor)}</span>` : ""}</td>
+        <td><span class="pill st-${classeStatus(i.status)}">${esc(i.status)}</span></td>
+        <td class="meta-col">${prog == null ? "—" : `<span class="pct">${prog}%</span><span class="barra-meta"><i style="width:${prog}%"></i></span>`}</td>
+      </tr>
+      <tr class="evid"><td colspan="4">${i.evidencias.length
+        ? `<span class="rotulo">Evidências</span>${i.evidencias.map(e => `<span class="arq">${esc(e.nome)} <span class="pill ev-${classeEv(e.status)}">${esc(e.status)}</span></span>`).join("")}`
+        : `<span class="rotulo">Evidências</span><span class="sub-inline">Nenhuma evidência vinculada</span>`}</td></tr>
+    </tbody>`;
+  };
+  const secoes = pilares.map(p => {
+    const lista = r.indicadores.filter(i => i.pilar === p);
+    return `<section class="pilar">
+      <h2>${esc(p)} <span>${lista.length} ${lista.length === 1 ? "indicador" : "indicadores"}</span></h2>
+      <table>
+        <colgroup><col><col class="c-valor"><col class="c-status"><col class="c-meta"></colgroup>
+        <thead><tr><th>Indicador</th><th class="num">Valor no período</th><th>Status</th><th>Meta</th></tr></thead>
+        ${lista.map(indicador).join("")}
+      </table>
+    </section>`;
+  }).join("");
+
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(r.nome)}</title>
 <style>
-  *{box-sizing:border-box} body{font-family:"Plus Jakarta Sans",Arial,sans-serif;color:#1c2b2b;margin:0;padding:32px;font-size:13px;line-height:1.45}
-  .barra{display:flex;justify-content:flex-end;gap:8px;margin-bottom:24px}
+  *{box-sizing:border-box} html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:"Plus Jakarta Sans",Arial,sans-serif;color:#1c2b2b;margin:0 auto;padding:32px;max-width:210mm;font-size:12px;line-height:1.45;background:#fff}
+  .barra{display:flex;justify-content:flex-end;margin-bottom:24px}
   .barra button{font:600 13px inherit;padding:9px 16px;border-radius:8px;border:none;background:#0a5252;color:#fff;cursor:pointer}
-  header{border-bottom:2px solid #0a5252;padding-bottom:14px;margin-bottom:18px}
-  .org{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#1a6b68;font-weight:700}
-  h1{font-size:22px;margin:4px 0 6px} .meta{color:#5f6b70;font-size:12px}
-  .status{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#e8ecec;color:#5a6468;margin-left:6px;vertical-align:middle}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid #0a5252;padding-bottom:14px;margin-bottom:20px}
+  .org{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#1a6b68;font-weight:700}
+  h1{font-size:21px;margin:4px 0 0;line-height:1.25}
+  .info{text-align:right;color:#5f6b70;font-size:11px;line-height:1.6;white-space:nowrap}
+  .info b{color:#1c2b2b;font-weight:600}
+  .status{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px;background:#e8ecec;color:#5a6468;margin-left:8px;vertical-align:middle;letter-spacing:.02em}
   .status.publicado{background:#dff2e5;color:#1d6b3a}
-  .resumo{display:flex;gap:24px;margin:0 0 18px;font-size:12px;color:#5f6b70} .resumo strong{display:block;font-size:18px;color:#1c2b2b}
-  table{width:100%;border-collapse:collapse} th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5f6b70;border-bottom:1px solid #cfd6d6;padding:6px 8px}
-  td{vertical-align:top;padding:8px;border-bottom:1px solid #e6e1d6} .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-  .sub{color:#5f6b70;font-size:11px} .sem-dado td:nth-child(2){color:#a15c00}
-  ul{margin:0;padding-left:16px} li{margin:2px 0}
-  .ev{font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap} .ev-ok{background:#dff2e5;color:#1d6b3a} .ev-rej{background:#fbdcd8;color:#a13224} .ev-ana{background:#d9e9ee;color:#2b5a66}
-  footer{margin-top:20px;font-size:11px;color:#5f6b70}
-  @page{size:A4 landscape;margin:14mm} @media print{body{padding:0}.barra{display:none} tr{break-inside:avoid}}
+
+  .resumo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+  .grupo{border:1px solid #e6e1d6;border-radius:10px;padding:12px 14px;background:#fbfaf6}
+  .grupo h3{margin:0 0 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#5f6b70}
+  .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .nums div{font-size:10.5px;color:#5f6b70;line-height:1.3}
+  .nums strong{display:block;font-size:20px;line-height:1.1;margin-bottom:2px;color:#1c2b2b;font-variant-numeric:tabular-nums}
+  .nums .ok strong{color:#1d6b3a} .nums .ana strong{color:#2b5a66} .nums .rej strong{color:#a13224} .nums .atr strong{color:#a15c00}
+
+  section.pilar{margin-bottom:22px}
+  h2{display:flex;align-items:baseline;gap:8px;font-size:14px;margin:0 0 6px;padding:6px 10px;border-left:3px solid #0a5252;background:#eef4f3;border-radius:0 6px 6px 0;break-after:avoid}
+  h2 span{font-size:10.5px;font-weight:500;color:#5f6b70}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  col.c-valor{width:24%} col.c-status{width:17%} col.c-meta{width:15%}
+  th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#5f6b70;font-weight:600;padding:6px 8px;border-bottom:1px solid #cfd6d6}
+  tbody.ind{break-inside:avoid}
+  tbody.ind + tbody.ind tr.linha td{border-top:1px solid #e6e1d6}
+  td{vertical-align:top;padding:9px 8px 3px}
+  tr.evid td{padding:0 8px 9px;font-size:10.5px}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .sub{display:block;color:#5f6b70;font-size:10px;font-weight:400;margin-top:1px}
+  .sub-inline{color:#8a9498;font-style:italic}
+  .falta{color:#a15c00}
+  .pill{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .st-ok,.ev-ok{background:#dff2e5;color:#1d6b3a} .st-atr{background:#fdecc8;color:#8a4f00} .st-ana,.ev-ana{background:#d9e9ee;color:#2b5a66} .ev-rej{background:#fbdcd8;color:#a13224}
+  .pct{font-weight:600;font-variant-numeric:tabular-nums}
+  .barra-meta{display:block;height:5px;margin-top:4px;border-radius:3px;background:#e6ecec;overflow:hidden}
+  .barra-meta i{display:block;height:100%;background:#0a5252;border-radius:3px}
+  .rotulo{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a9498;margin-right:8px}
+  .arq{display:inline-block;margin:2px 12px 2px 0;color:#3d4a4a}
+  footer{margin-top:24px;padding-top:10px;border-top:1px solid #e6e1d6;font-size:10px;color:#5f6b70}
+  @page{size:A4 portrait;margin:14mm}
+  @media print{body{padding:0;max-width:none}.barra{display:none}}
 </style></head><body>
 <div class="barra"><button id="imprimir" type="button">Imprimir / Salvar como PDF</button></div>
 <header>
-  <div class="org">${esc(r.organizacao.nome)}${r.organizacao.setor ? " · " + esc(r.organizacao.setor) : ""}</div>
-  <h1>${esc(r.nome)} <span class="status ${r.status === "Publicado" ? "publicado" : ""}">${esc(r.status)}</span></h1>
-  <div class="meta">${esc(r.modeloNome)} · Período: ${esc(r.periodo.texto)}${r.modelo === "intervalo" ? "" : ` (${esc(r.periodo.inicio)} a ${esc(r.periodo.fim)})`}<br>
-  Gerado em ${esc(r.geradoEm)} por ${esc(r.geradoPor)}</div>
+  <div>
+    <div class="org">${esc(r.organizacao.nome)}${r.organizacao.setor ? " · " + esc(r.organizacao.setor) : ""}</div>
+    <h1>${esc(r.nome)}<span class="status ${r.status === "Publicado" ? "publicado" : ""}">${esc(r.status)}</span></h1>
+  </div>
+  <div class="info">
+    ${esc(r.modeloNome)} · <b>${esc(r.periodo.texto)}</b><br>
+    ${r.modelo === "intervalo" ? "" : `${esc(r.periodo.inicio)} a ${esc(r.periodo.fim)}<br>`}
+    Gerado em ${esc(r.geradoEm)} por ${esc(r.geradoPor)}
+  </div>
 </header>
 <div class="resumo">
-  <div><strong>${r.resumo.indicadores}</strong>indicadores</div>
-  <div><strong>${r.resumo.comDado}</strong>com dado no período</div>
-  <div><strong>${r.resumo.comEvidenciaAprovada}</strong>com evidência aprovada</div>
+  <div class="grupo"><h3>Indicadores</h3><div class="nums">
+    <div><strong>${r.resumo.indicadores}</strong>ativos</div>
+    <div class="ok"><strong>${r.resumo.comDado}</strong>com dado no período</div>
+    <div class="atr"><strong>${semDado}</strong>sem dado no período</div>
+  </div></div>
+  <div class="grupo"><h3>Evidências</h3><div class="nums">
+    <div class="ok"><strong>${contaEv("ok")}</strong>aprovadas</div>
+    <div class="ana"><strong>${contaEv("ana")}</strong>em análise</div>
+    <div class="rej"><strong>${contaEv("rej")}</strong>rejeitadas</div>
+  </div></div>
 </div>
-<table>
-  <thead><tr><th>Indicador</th><th class="num">Valor no período</th><th>Status</th><th class="num">Meta</th><th>Evidências</th></tr></thead>
-  <tbody>${linhas || `<tr><td colspan="5">Nenhum indicador ativo.</td></tr>`}</tbody>
-</table>
+${secoes || `<p class="sub-inline">Nenhum indicador ativo.</p>`}
 <footer>Cada valor é o último registro com data de referência dentro do período. Status, meta e evidências refletem o momento em que o relatório foi gerado. Gerado pelo Evidra.</footer>
+</body></html>`;
+}
+// "Pacote de auditoria": summary and gaps first, then one A4 page (or more) per pillar
+function paginaAuditoria(r) {
+  const tags = i => (i.gri ? ` <span class="tag">GRI ${esc(i.gri)}</span>` : "") + (i.ods ? ` <span class="tag ods">ODS ${esc(i.ods)}</span>` : "");
+  const classeEv = s => s === "Aprovada" ? "ok" : s === "Rejeitada" ? "rej" : "ana";
+  const lacuna = (titulo, nomes, explica) => `
+    <div class="lacuna"><h3>${titulo} <span class="qtd">${nomes.length}</span></h3><p class="sub">${explica}</p>
+      ${nomes.length ? `<ul>${nomes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : `<p class="nenhuma">Nenhum.</p>`}</div>`;
+  const indicador = i => `
+    <article class="ind">
+      <h3>${esc(i.nome)}${tags(i)}</h3>
+      <p class="sub">${esc(i.pilar)}${i.unidade ? " · " + esc(i.unidade) : ""} · Responsável: ${esc(i.responsavel || "—")}</p>
+      <h4>Valores registrados no período</h4>
+      ${i.valores.length ? `<table><thead><tr><th>Data de referência</th><th class="num">Valor</th><th>Registrado por</th><th>Registrado em</th></tr></thead><tbody>
+        ${i.valores.map(v => `<tr><td>${esc(v.data)}</td><td class="num">${esc(v.valor)}</td><td>${esc(v.quem || "—")}</td><td>${esc(v.registradoEm)}</td></tr>`).join("")}
+      </tbody></table>` : `<p class="falta">Nenhum valor com data de referência no período.</p>`}
+      <h4>Evidências</h4>
+      ${i.evidencias.length ? `<table><thead><tr><th>Arquivo</th><th>Status</th><th>Revisão</th><th>SHA-256 (12)</th></tr></thead><tbody>
+        ${i.evidencias.map(e => `<tr><td>${esc(e.arquivo)}${e.enviadoPor ? `<br><span class="sub">Enviado por ${esc(e.enviadoPor)}${e.enviadoEm ? " em " + esc(e.enviadoEm) : ""}</span>` : ""}</td>
+          <td><span class="ev ev-${classeEv(e.status)}">${esc(e.status)}</span></td>
+          <td>${e.revisor ? `${esc(e.revisor)}${e.revisadoEm ? ", " + esc(e.revisadoEm) : ""}` : `<span class="sub">Sem revisão</span>`}${e.nota ? `<br><span class="nota">“${esc(e.nota)}”</span>` : ""}</td>
+          <td class="hash">${e.sha256 ? esc(e.sha256) : `<span class="sub">arquivo não armazenado</span>`}</td></tr>`).join("")}
+      </tbody></table>` : `<p class="falta">Nenhuma evidência vinculada.</p>`}
+    </article>`;
+  const cabecalho = `
+    <div class="org">${esc(r.organizacao.nome)}${r.organizacao.setor ? " · " + esc(r.organizacao.setor) : ""}</div>
+    <h1>${esc(r.nome)} <span class="status ${r.status === "Publicado" ? "publicado" : ""}">${esc(r.status)}</span></h1>
+    <div class="meta">Pacote de auditoria · Período: ${esc(r.periodo.texto)} (${esc(r.periodo.inicio)} a ${esc(r.periodo.fim)})<br>
+      Gerado em ${esc(r.geradoEm)} por ${esc(r.geradoPor)}</div>`;
+  const s = r.resumo, l = s.lacunas;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(r.nome)}</title>
+<style>
+  *{box-sizing:border-box} body{font-family:"Plus Jakarta Sans",Arial,sans-serif;color:#1c2b2b;margin:0 auto;padding:32px;max-width:210mm;font-size:12px;line-height:1.45}
+  .barra{display:flex;justify-content:flex-end;margin-bottom:24px}
+  .barra button{font:600 13px inherit;padding:9px 16px;border-radius:8px;border:none;background:#0a5252;color:#fff;cursor:pointer}
+  header{border-bottom:2px solid #0a5252;padding-bottom:14px;margin-bottom:18px}
+  .org{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#1a6b68;font-weight:700}
+  h1{font-size:20px;margin:4px 0 6px} .meta{color:#5f6b70;font-size:11px}
+  h2{font-size:16px;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid #cfd6d6} h3{font-size:13px;margin:0 0 2px} h4{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5f6b70;margin:12px 0 4px}
+  .status{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#e8ecec;color:#5a6468;vertical-align:middle}
+  .status.publicado{background:#dff2e5;color:#1d6b3a}
+  .numeros{display:flex;gap:28px;margin:0 0 20px} .numeros div{color:#5f6b70} .numeros strong{display:block;font-size:22px;color:#1c2b2b}
+  .lacunas{display:grid;grid-template-columns:repeat(3,1fr);gap:14px} .lacuna{border:1px solid #e6e1d6;border-radius:8px;padding:10px 12px;break-inside:avoid}
+  .lacuna .qtd{float:right;font-size:13px;color:#a15c00} .lacuna ul{margin:6px 0 0;padding-left:16px} .nenhuma{color:#1d6b3a;margin:6px 0 0}
+  section.pilar{break-before:page;padding-top:4px} .ind{border-top:1px solid #e6e1d6;padding:12px 0 6px;break-inside:avoid-page}
+  table{width:100%;border-collapse:collapse;margin-bottom:4px} th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#5f6b70;border-bottom:1px solid #cfd6d6;padding:4px 6px}
+  td{vertical-align:top;padding:5px 6px;border-bottom:1px solid #eee9de} tr{break-inside:avoid} .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .sub{color:#5f6b70;font-size:10.5px} .falta{color:#a15c00;margin:2px 0} .nota{font-style:italic;color:#3d4a4a}
+  .hash{font-family:Consolas,"Courier New",monospace;font-size:11px;white-space:nowrap}
+  .tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:#e7f0ef;color:#0a5252;vertical-align:middle} .tag.ods{background:#f8edcf;color:#7a5600}
+  .ev{font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap} .ev-ok{background:#dff2e5;color:#1d6b3a} .ev-rej{background:#fbdcd8;color:#a13224} .ev-ana{background:#d9e9ee;color:#2b5a66}
+  footer{margin-top:20px;font-size:10.5px;color:#5f6b70}
+  @page{size:A4 portrait;margin:14mm} @media print{body{padding:0;max-width:none}.barra{display:none}}
+</style></head><body>
+<div class="barra"><button id="imprimir" type="button">Imprimir / salvar PDF</button></div>
+<header>${cabecalho}</header>
+<h2>Resumo</h2>
+<div class="numeros">
+  <div><strong>${s.indicadores}</strong>indicadores ativos</div>
+  <div><strong>${s.comEvidenciaAprovada}</strong>com ao menos uma evidência aprovada</div>
+  <div><strong>${s.comValor}</strong>com valor no período</div>
+</div>
+<h2>Lacunas</h2>
+<div class="lacunas">
+  ${lacuna("Sem evidência", l.semEvidencia, "Nenhum arquivo vinculado ao indicador.")}
+  ${lacuna("Só evidências não aprovadas", l.soNaoAprovada, "Há arquivos, mas nenhum foi aprovado (em análise ou rejeitados).")}
+  ${lacuna("Sem valor no período", l.semValor, "Nenhum registro com data de referência no período.")}
+</div>
+${r.categorias.map(c => `<section class="pilar"><h2>${esc(c.nome)} <span class="sub">· ${c.indicadores.length} ${c.indicadores.length === 1 ? "indicador" : "indicadores"}</span></h2>${c.indicadores.map(indicador).join("")}</section>`).join("")
+  || `<p>Nenhum indicador ativo.</p>`}
+<footer>Conteúdo congelado no momento da geração. O código SHA-256 (12 primeiros caracteres) identifica o conteúdo exato de cada arquivo armazenado: um arquivo entregue depois deve gerar o mesmo código. Gerado pelo Evidra.</footer>
 </body></html>`;
 }
 $("lista-rel").addEventListener("click", e => {
@@ -1759,7 +2015,9 @@ const ACOES_PERFIL = [
   ["indicadores", "Cadastrar, atualizar e arquivar indicadores"],
   ["evidencias", "Enviar e vincular evidências"],
   ["pendencias", "Criar, editar e concluir pendências"],
+  ["importar", "Importar indicadores de uma planilha (CSV)"],
   ["relatorios", "Gerar e arquivar relatórios"],
+  ["auditoria", "Gerar o pacote de auditoria"],
   ["revisar", "Aprovar ou rejeitar evidências de outras pessoas"],
   ["publicar", "Publicar relatórios como versão oficial"],
   ["equipe", "Convidar, desativar e reativar membros"],
@@ -1771,6 +2029,7 @@ function renderPerfil() {
   const u = usuarioAtual();
   if (!u.nome) return;
   $("perfil-sigla").textContent = u.sigla || "";
+  $("perfil-sigla").style.cssText = u.id != null ? corAvatar(u) : "";
   $("perfil-nome").textContent = u.nome;
   $("perfil-cargo").textContent = u.cargo || "Cargo não informado";
   $("perfil-email").textContent = u.email || "";
@@ -1982,15 +2241,30 @@ function mostrarLogin() {
   mostrarTela("entrar");
 }
 
+function erroLogin(msg) {
+  $("l-erro").textContent = msg;
+  $("l-erro").style.display = "block";
+}
 async function entrar() {
-  const resp = await fetch(`${API}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: $("l-email").value.trim(), senha: $("l-senha").value })
-  });
-  if (!resp.ok) {
-    $("l-erro").textContent = "E-mail ou senha incorretos.";
-    $("l-erro").style.display = "block";
+  let resp;
+  try {
+    resp = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $("l-email").value.trim(), senha: $("l-senha").value })
+    });
+  } catch {
+    resp = null; // server unreachable
+  }
+  if (resp && resp.status === 401) {
+    // wrong e-mail or password: keep the e-mail, clear the password and focus it
+    erroLogin("E-mail ou senha incorretos.");
+    $("l-senha").value = "";
+    $("l-senha").focus();
+    return;
+  }
+  if (!resp || !resp.ok) {
+    erroLogin("Não foi possível entrar. Tente novamente.");
     return;
   }
   const dados = await resp.json();
@@ -2001,7 +2275,15 @@ async function entrar() {
   $("l-erro").style.display = "none";
   await carregar();
 }
-aoClicar("l-entrar", entrar);
+// "Entrar" only works with both fields filled
+function atualizarBotaoEntrar() {
+  $("l-entrar").disabled = !$("l-email").value.trim() || !$("l-senha").value;
+}
+// ocupar() re-enables the button when it finishes, so check the fields again after it
+$("l-entrar").addEventListener("click", () => ocupar($("l-entrar"), entrar).finally(atualizarBotaoEntrar));
+["l-email", "l-senha"].forEach(id =>
+  $(id).addEventListener("input", () => { $("l-erro").style.display = "none"; atualizarBotaoEntrar(); }));
+atualizarBotaoEntrar();
 $("l-senha").addEventListener("keydown", e => { if (e.key === "Enter") $("l-entrar").click(); });
 $("btn-sair").addEventListener("click", e => {
   e.preventDefault();
@@ -2016,6 +2298,7 @@ function aplicarUsuario() {
   $("user-cargo").textContent = PERFIS[u.role] || u.cargo || "";
   $("user-cargo").title = u.cargo || "";
   $("user-sigla").textContent = u.sigla || "";
+  $("user-sigla").style.cssText = u.id != null ? corAvatar(u) : ""; // same color as on the team screen
   $("ola").textContent = `Olá, ${u.nome.split(" ")[0]}.`;
 }
 

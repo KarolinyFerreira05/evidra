@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * status and evidence into reports.content (JSON), so the report never changes afterwards.
  */
 @RestController
+@RequestMapping("/reports")
 public class ReportController {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -34,7 +36,9 @@ public class ReportController {
     private static final ZoneId ZONA = ZoneId.of("America/Sao_Paulo");
     static final Map<String, String> MODELOS = Map.of(
         "mensal", "Relatório mensal", "semestral", "Relatório parcial/semestral",
-        "anual", "Relatório anual", "intervalo", "Intervalo definido");
+        "anual", "Relatório anual", "intervalo", "Intervalo definido", "auditoria", "Pacote de auditoria");
+    // kinds of period; the "auditoria" model takes any of them, the others are one each
+    static final List<String> TIPOS_PERIODO = List.of("mensal", "semestral", "anual", "intervalo");
 
     private final JdbcTemplate jdbc;
 
@@ -54,6 +58,7 @@ public class ReportController {
     /** "09/2026", "1º semestre de 2026", "2026" or "01/03/2026 a 15/04/2026". */
     static String textoPeriodo(String modelo, LocalDate inicio, LocalDate fim) {
         if (modelo == null || inicio == null || fim == null) return "—";
+        if ("auditoria".equals(modelo)) modelo = tipoPeriodo(inicio, fim);
         return switch (modelo) {
             case "mensal" -> String.format("%02d/%d", inicio.getMonthValue(), inicio.getYear());
             case "semestral" -> (inicio.getMonthValue() <= 6 ? "1º" : "2º") + " semestre de " + inicio.getYear();
@@ -62,9 +67,25 @@ public class ReportController {
         };
     }
 
+    /** Whether the dates are exactly one month, semester or year (an "intervalo" is anything). */
+    static boolean coerente(String tipo, LocalDate inicio, LocalDate fim) {
+        return switch (tipo) {
+            case "mensal" -> inicio.getDayOfMonth() == 1 && fim.equals(inicio.with(TemporalAdjusters.lastDayOfMonth()));
+            case "semestral" -> (inicio.getMonthValue() == 1 || inicio.getMonthValue() == 7) && inicio.getDayOfMonth() == 1
+                && fim.equals(inicio.plusMonths(5).with(TemporalAdjusters.lastDayOfMonth()));
+            case "anual" -> inicio.getDayOfYear() == 1 && fim.equals(inicio.with(TemporalAdjusters.lastDayOfYear()));
+            default -> true;
+        };
+    }
+
+    // the kind of period an audit package covers, read back from its dates
+    static String tipoPeriodo(LocalDate inicio, LocalDate fim) {
+        return TIPOS_PERIODO.stream().filter(t -> coerente(t, inicio, fim)).findFirst().orElse("intervalo");
+    }
+
     // ?arquivados=true lists only the archived ones
-    @GetMapping("/reports")
-    public List<Map<String, Object>> list(@RequestParam(value = "arquivados", defaultValue = "false") boolean arquivados) {
+    @GetMapping
+    public List<Map<String, Object>> list(@RequestParam(defaultValue = "false") boolean arquivados) {
         return jdbc.query("""
             SELECT id, name, status, created_at, template, period_start, period_end, content IS NOT NULL AS has_content
             FROM reports WHERE organization_id = ? AND archived = ? ORDER BY created_at DESC, id DESC
@@ -85,12 +106,12 @@ public class ReportController {
     }
 
     // archiving hides a report from the list; it is never deleted, and can be restored
-    @PostMapping("/reports/{id}/archive")
+    @PostMapping("/{id}/archive")
     public ResponseEntity<?> arquivar(@PathVariable int id) {
         return mudarArquivado(id, true);
     }
 
-    @PostMapping("/reports/{id}/restore")
+    @PostMapping("/{id}/restore")
     public ResponseEntity<?> restaurar(@PathVariable int id) {
         return mudarArquivado(id, false);
     }
@@ -106,12 +127,19 @@ public class ReportController {
     }
 
     // {"nome": "...", "modelo": "mensal", "inicio": "2026-09-01", "fim": "2026-09-30"}
-    @PostMapping("/reports")
+    // the audit package also says which kind of period it covers: {"modelo": "auditoria", "periodo": "semestral", ...}
+    @PostMapping
     public ResponseEntity<?> criar(@RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL, Auth.AUDITOR);
         int org = Auth.orgId();
         String modelo = str(body.get("modelo"));
         if (!MODELOS.containsKey(modelo)) throw new ApiErro(400, "Escolha o modelo do relatório.");
+        String tipo = modelo;
+        if (modelo.equals("auditoria")) {
+            Auth.exigir(Auth.AUDITOR); // admin or auditor
+            tipo = str(body.get("periodo"));
+            if (!TIPOS_PERIODO.contains(tipo)) throw new ApiErro(400, "Escolha o período do pacote de auditoria.");
+        }
         LocalDate inicio, fim;
         try {
             inicio = LocalDate.parse(str(body.get("inicio")));
@@ -122,20 +150,15 @@ public class ReportController {
         if (fim.isBefore(inicio)) throw new ApiErro(400, "O fim do período não pode ser antes do início.");
         if (inicio.plusYears(10).isBefore(fim)) throw new ApiErro(400, "O período pode ter no máximo 10 anos.");
         // the model must match the dates, so the period text is always true
-        boolean coerente = switch (modelo) {
-            case "mensal" -> inicio.getDayOfMonth() == 1 && fim.equals(inicio.with(TemporalAdjusters.lastDayOfMonth()));
-            case "semestral" -> (inicio.getMonthValue() == 1 || inicio.getMonthValue() == 7) && inicio.getDayOfMonth() == 1
-                && fim.equals(inicio.plusMonths(5).with(TemporalAdjusters.lastDayOfMonth()));
-            case "anual" -> inicio.getDayOfYear() == 1 && fim.equals(inicio.with(TemporalAdjusters.lastDayOfYear()));
-            default -> true;
-        };
-        if (!coerente) throw new ApiErro(400, "O período não corresponde ao modelo escolhido.");
+        if (!coerente(tipo, inicio, fim)) throw new ApiErro(400, "O período não corresponde ao modelo escolhido.");
 
         String nome = str(body.get("nome"));
         if (nome.isEmpty()) nome = MODELOS.get(modelo) + " – " + textoPeriodo(modelo, inicio, fim);
         if (nome.length() > 200) throw new ApiErro(400, "O nome pode ter no máximo 200 caracteres.");
 
-        String conteudo = JsonWriter.standard().writeToString(snapshot(org, nome, modelo, inicio, fim));
+        Map<String, Object> s = modelo.equals("auditoria")
+            ? pacoteAuditoria(org, nome, inicio, fim) : snapshot(org, nome, modelo, inicio, fim);
+        String conteudo = JsonWriter.standard().writeToString(s);
         jdbc.update("""
             INSERT INTO reports (organization_id, name, template, period_start, period_end, content)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -184,6 +207,8 @@ public class ReportController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("nome", i.get("nome"));
             m.put("pilar", i.get("cat"));
+            m.put("gri", i.get("griCodigo"));
+            m.put("ods", i.get("ods"));
             m.put("responsavel", i.get("dono"));
             if (reg.isEmpty()) {
                 m.put("valor", "Sem dado no período");
@@ -225,7 +250,150 @@ public class ReportController {
         return s;
     }
 
-    @GetMapping("/reports/{id}")
+    private static String statusEvidencia(String s) {
+        return switch (s) {
+            case "aprovada" -> "Aprovada";
+            case "rejeitada" -> "Rejeitada";
+            default -> "Em análise";
+        };
+    }
+
+    /**
+     * "Pacote de auditoria": per active indicator, every value recorded in the period (and who entered it)
+     * and every evidence with its review and a short SHA-256 of the stored file, so an auditor can check
+     * that a file handed over later is the same one; plus a summary of the gaps.
+     */
+    private Map<String, Object> pacoteAuditoria(int org, String nome, LocalDate inicio, LocalDate fim) {
+        Map<String, Object> organizacao = jdbc.queryForObject(
+            "SELECT name, sector FROM organizations WHERE id = ?", (rs, n) -> {
+                Map<String, Object> o = new LinkedHashMap<>();
+                o.put("nome", rs.getString("name"));
+                o.put("setor", rs.getString("sector"));
+                return o;
+            }, org);
+        String autor = jdbc.queryForObject("SELECT name FROM users WHERE id = ?", String.class, Auth.userId());
+
+        Map<Integer, Map<String, Object>> porId = new LinkedHashMap<>();
+        jdbc.query("""
+            SELECT i.id, i.name, i.category, i.unit, i.gri_code, i.ods, u.name AS owner_name
+            FROM indicators i LEFT JOIN users u ON u.id = i.owner_id
+            WHERE i.organization_id = ? AND i.archived = FALSE
+            ORDER BY FIELD(i.category, 'ambiental', 'social', 'governanca'), i.name
+            """, rs -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("nome", rs.getString("name"));
+                m.put("pilar", switch (rs.getString("category")) {
+                    case "ambiental" -> "Ambiental";
+                    case "social" -> "Social";
+                    default -> "Governança";
+                });
+                m.put("gri", rs.getString("gri_code"));
+                m.put("ods", rs.getObject("ods", Integer.class));
+                m.put("unidade", rs.getString("unit"));
+                m.put("responsavel", rs.getString("owner_name"));
+                m.put("valores", new ArrayList<Map<String, Object>>());
+                m.put("evidencias", new ArrayList<Map<String, Object>>());
+                porId.put(rs.getInt("id"), m);
+            }, org);
+
+        // every value whose reference date is in the period, oldest first
+        jdbc.query("""
+            SELECT r.indicator_id, r.value, r.period, r.created_at, u.name AS who
+            FROM indicator_records r
+            JOIN indicators i ON i.id = r.indicator_id
+            LEFT JOIN users u ON u.id = r.entered_by
+            WHERE i.organization_id = ? AND i.archived = FALSE AND r.period BETWEEN ? AND ?
+            ORDER BY r.period, r.created_at, r.id
+            """, rs -> {
+                Map<String, Object> ind = porId.get(rs.getInt("indicator_id"));
+                if (ind == null) return;
+                Map<String, Object> v = new LinkedHashMap<>();
+                v.put("valor", IndicatorController.valorComUnidade(rs.getBigDecimal("value"), (String) ind.get("unidade")));
+                v.put("data", rs.getDate("period").toLocalDate().format(BR));
+                v.put("quem", rs.getString("who"));
+                v.put("registradoEm", rs.getTimestamp("created_at").toLocalDateTime().format(BR_HORA));
+                @SuppressWarnings("unchecked") List<Map<String, Object>> l = (List<Map<String, Object>>) ind.get("valores");
+                l.add(v);
+            }, org, inicio, fim);
+
+        // the hash is computed by MySQL, so the file content never leaves the database
+        jdbc.query("""
+            SELECT e.indicator_id, e.file_name, e.status, e.uploaded_at, up.name AS uploader,
+                   rv.name AS reviewer, e.reviewed_at, e.review_note,
+                   LEFT(SHA2(e.file_content, 256), 12) AS sha
+            FROM evidence e
+            JOIN indicators i ON i.id = e.indicator_id AND i.organization_id = e.organization_id
+            LEFT JOIN users up ON up.id = e.uploaded_by
+            LEFT JOIN users rv ON rv.id = e.reviewed_by
+            WHERE e.organization_id = ? AND i.archived = FALSE
+            ORDER BY e.uploaded_at, e.id
+            """, rs -> {
+                Map<String, Object> ind = porId.get(rs.getInt("indicator_id"));
+                if (ind == null) return;
+                java.sql.Timestamp revisado = rs.getTimestamp("reviewed_at"), enviado = rs.getTimestamp("uploaded_at");
+                Map<String, Object> e = new LinkedHashMap<>();
+                e.put("arquivo", rs.getString("file_name"));
+                e.put("status", statusEvidencia(rs.getString("status")));
+                e.put("enviadoPor", rs.getString("uploader"));
+                e.put("enviadoEm", enviado == null ? null : enviado.toLocalDateTime().format(BR));
+                e.put("revisor", rs.getString("reviewer"));
+                e.put("revisadoEm", revisado == null ? null : revisado.toLocalDateTime().format(BR));
+                e.put("nota", rs.getString("review_note"));
+                e.put("sha256", rs.getString("sha")); // null: sent before files were stored in the database
+                @SuppressWarnings("unchecked") List<Map<String, Object>> l = (List<Map<String, Object>>) ind.get("evidencias");
+                l.add(e);
+            }, org);
+
+        List<String> semEvidencia = new ArrayList<>(), soNaoAprovada = new ArrayList<>(), semValor = new ArrayList<>();
+        int comAprovada = 0, comValor = 0;
+        Map<String, List<Map<String, Object>>> porPilar = new LinkedHashMap<>();
+        for (Map<String, Object> m : porId.values()) {
+            List<?> ev = (List<?>) m.get("evidencias");
+            boolean aprovada = ev.stream().anyMatch(e -> "Aprovada".equals(((Map<?, ?>) e).get("status")));
+            if (aprovada) comAprovada++;
+            else if (ev.isEmpty()) semEvidencia.add((String) m.get("nome"));
+            else soNaoAprovada.add((String) m.get("nome"));
+            if (((List<?>) m.get("valores")).isEmpty()) semValor.add((String) m.get("nome"));
+            else comValor++;
+            porPilar.computeIfAbsent((String) m.get("pilar"), k -> new ArrayList<>()).add(m);
+        }
+        List<Map<String, Object>> categorias = new ArrayList<>();
+        porPilar.forEach((pilar, l) -> {
+            Map<String, Object> c = new LinkedHashMap<>();
+            c.put("nome", pilar);
+            c.put("indicadores", l);
+            categorias.add(c);
+        });
+
+        Map<String, Object> lacunas = new LinkedHashMap<>();
+        lacunas.put("semEvidencia", semEvidencia);
+        lacunas.put("soNaoAprovada", soNaoAprovada);
+        lacunas.put("semValor", semValor);
+        Map<String, Object> resumo = new LinkedHashMap<>();
+        resumo.put("indicadores", porId.size());
+        resumo.put("comEvidenciaAprovada", comAprovada);
+        resumo.put("comValor", comValor);
+        resumo.put("lacunas", lacunas);
+
+        Map<String, Object> periodo = new LinkedHashMap<>();
+        periodo.put("inicio", inicio.format(BR));
+        periodo.put("fim", fim.format(BR));
+        periodo.put("texto", textoPeriodo("auditoria", inicio, fim));
+
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("nome", nome);
+        s.put("modelo", "auditoria");
+        s.put("modeloNome", MODELOS.get("auditoria"));
+        s.put("organizacao", organizacao);
+        s.put("periodo", periodo);
+        s.put("geradoEm", LocalDateTime.now(ZONA).format(BR_HORA));
+        s.put("geradoPor", autor);
+        s.put("resumo", resumo);
+        s.put("categorias", categorias);
+        return s;
+    }
+
+    @GetMapping("/{id}")
     public ResponseEntity<String> snapshot(@PathVariable int id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
             "SELECT content, status FROM reports WHERE id = ? AND organization_id = ?", id, Auth.orgId());
@@ -238,7 +406,7 @@ public class ReportController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     }
 
-    @PostMapping("/reports/{id}/publish")
+    @PostMapping("/{id}/publish")
     public ResponseEntity<?> publicar(@PathVariable int id) {
         Auth.exigir(Auth.AUDITOR); // admin or auditor: whoever generated the draft is not necessarily who signs it off
         List<Map<String, Object>> rows = jdbc.queryForList(

@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/auth")
 public class AuthController {
 
     private final JdbcTemplate jdbc;
@@ -29,7 +31,7 @@ public class AuthController {
         this.defaultPassword = defaultPassword;
     }
 
-    @PostMapping("/auth/login")
+    @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, Object> body) {
         String email = String.valueOf(body.getOrDefault("email", "")).trim().toLowerCase();
         String senha = String.valueOf(body.getOrDefault("senha", ""));
@@ -67,7 +69,7 @@ public class AuthController {
     }
 
     // the signed-in user as the database sees them now (role changes apply without a new login)
-    @GetMapping("/auth/me")
+    @GetMapping("/me")
     public Map<String, Object> me() {
         return jdbc.queryForObject("SELECT name, email, job_title, focus_category, role FROM users WHERE id = ?", (rs, n) -> {
             String nome = rs.getString("name");
@@ -86,7 +88,7 @@ public class AuthController {
     }
 
     // {"nome": "...", "cargo": "...", "foco": "ambiental"}: the signed-in user edits their own profile
-    @PatchMapping("/auth/me")
+    @PatchMapping("/me")
     public ResponseEntity<?> editarPerfil(@RequestBody Map<String, Object> body) {
         String nome = String.valueOf(body.getOrDefault("nome", "")).strip().replaceAll("\\s+", " ");
         String cargo = String.valueOf(body.getOrDefault("cargo", "")).strip();
@@ -100,7 +102,7 @@ public class AuthController {
         return ResponseEntity.ok(me());
     }
 
-@PostMapping("/auth/change-password")
+    @PostMapping("/change-password")
 public ResponseEntity<?> changePassword(@RequestBody Map<String, Object> body) {
     String atual = String.valueOf(body.getOrDefault("atual", ""));
     String nova = String.valueOf(body.getOrDefault("nova", ""));

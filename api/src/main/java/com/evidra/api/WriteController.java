@@ -3,6 +3,7 @@ package com.evidra.api;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -62,18 +63,22 @@ public class WriteController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid data"));
 
         String unit = m.group(2).isBlank() ? null : m.group(2).trim();
+        String gri = IndicatorController.griCodigo(body.get("griCodigo"));
+        Integer ods = IndicatorController.ods(body.get("ods"));
 
         KeyHolder kh = new GeneratedKeyHolder();
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
-                "INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id) "
-                + "VALUES (?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+                "INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id, gri_code, ods) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
             ps.setInt(1, Auth.orgId());
             ps.setString(2, nome);
             ps.setString(3, cat);
             ps.setString(4, unit);
             ps.setInt(5, prog);
             ps.setInt(6, Auth.userId());
+            ps.setString(7, gri);
+            ps.setObject(8, ods, Types.TINYINT);
             return ps;
         }, kh);
         int id = kh.getKey().intValue();

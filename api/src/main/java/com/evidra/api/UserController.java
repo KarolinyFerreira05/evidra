@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Team members. They are deactivated, never deleted, because history refers to them. */
 @RestController
+@RequestMapping("/users")
 public class UserController {
 
     private final JdbcTemplate jdbc;
@@ -54,8 +56,8 @@ public class UserController {
     private static final String PENDENCIAS_ABERTAS =
         "SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND organization_id = ? AND origin = 'manual' AND done = FALSE";
 
-    @GetMapping("/users")
-    public List<Map<String, Object>> list(@RequestParam(value = "inativos", defaultValue = "false") boolean inativos) {
+    @GetMapping
+    public List<Map<String, Object>> list(@RequestParam(defaultValue = "false") boolean inativos) {
         return jdbc.query("""
             SELECT u.id, u.name, u.job_title, u.focus_category, u.role, u.active, u.deactivated_at,
                    (SELECT COUNT(*) FROM indicators i WHERE i.owner_id = u.id AND i.organization_id = u.organization_id AND i.archived = FALSE) AS indicadores,
@@ -84,7 +86,7 @@ public class UserController {
     private static final java.time.format.DateTimeFormatter BR_HORA = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     // details of one member for the Equipe screen: admin only, since it exposes e-mail and activity
-    @GetMapping("/users/{id}")
+    @GetMapping("/{id}")
     public Map<String, Object> detalhes(@PathVariable int id) {
         Auth.exigir();
         int org = Auth.orgId();
@@ -142,7 +144,7 @@ public class UserController {
         return m;
     }
 
-    @PostMapping("/users")
+    @PostMapping
     public ResponseEntity<?> convidar(@RequestBody Map<String, Object> body) {
         Auth.exigir(); // team management: admin only
         String nome = str(body.get("nome"));
@@ -172,7 +174,7 @@ public class UserController {
      * to another active member; without transferTo, a member who still holds something gets 409 with the counts.
      * {"ativo": true} reactivates.
      */
-    @PatchMapping("/users/{id}/active")
+    @PatchMapping("/{id}/active")
     @Transactional
     public ResponseEntity<?> ativo(@PathVariable int id, @RequestBody Map<String, Object> body) {
         Auth.exigir(); // team management: admin only

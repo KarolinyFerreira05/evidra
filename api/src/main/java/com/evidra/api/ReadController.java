@@ -79,7 +79,7 @@ public class ReadController {
 
     // the dashboard shows the latest 10; the history screen asks for more with ?limit=
     @GetMapping("/activity")
-    public List<Map<String, Object>> activity(@RequestParam(value = "limit", defaultValue = "10") int limit) {
+    public List<Map<String, Object>> activity(@RequestParam(defaultValue = "10") int limit) {
         return jdbc.query("""
             SELECT a.action, a.detail, a.created_at, u.name, a.user_id
             FROM activity_log a JOIN users u ON u.id = a.user_id

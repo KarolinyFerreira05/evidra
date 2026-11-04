@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,15 +24,20 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/indicators")
 public class IndicatorController {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final ZoneId ZONA = ZoneId.of("America/Sao_Paulo");
     private static final Map<String, String> CAT_DB =
         Map.of("Ambiental", "ambiental", "Social", "social", "Governança", "governanca");
+    // GRI standards and UN SDGs an indicator can be tagged with (keep in sync with GRI_OPCOES / ODS_OPCOES in App.js)
+    static final Set<String> GRI = Set.of("205", "302", "303", "305", "306", "401", "403", "404", "405");
+    static final Set<Integer> ODS = Set.of(9, 12, 13);
 
     private final JdbcTemplate jdbc;
 
@@ -59,6 +65,27 @@ public class IndicatorController {
             + (unit != null && !unit.isBlank() ? sep + unit : "");
     }
 
+    /** GRI code ("305", also "GRI 305"), or null for "no tag"; anything else is a 400. */
+    static String griCodigo(Object o) {
+        String g = str(o).replaceFirst("(?i)^GRI\\s*", "");
+        if (g.isEmpty()) return null;
+        if (!GRI.contains(g)) throw new ApiErro(400, "Código GRI inválido: use 205, 302, 303, 305, 306, 401, 403, 404 ou 405.");
+        return g;
+    }
+
+    /** SDG number ("13", also "ODS 13"), or null for "no tag"; anything else is a 400. */
+    static Integer ods(Object o) {
+        String s = str(o).replaceFirst("(?i)^ODS\\s*", "");
+        if (s.isEmpty()) return null;
+        try {
+            int n = Integer.parseInt(s);
+            if (ODS.contains(n)) return n;
+        } catch (NumberFormatException e) {
+            // falls through to the message below
+        }
+        throw new ApiErro(400, "ODS inválido: use 9, 12 ou 13.");
+    }
+
     private void registrar(String acao, String detalhe) {
         jdbc.update("INSERT INTO activity_log (organization_id, user_id, action, detail) VALUES (?, ?, ?, ?)",
             Auth.orgId(), Auth.userId(), acao, detalhe.length() > 255 ? detalhe.substring(0, 254) + "…" : detalhe);
@@ -72,13 +99,13 @@ public class IndicatorController {
             .stream().findFirst().orElseThrow(() -> new ApiErro(404, "Indicador não encontrado."));
     }
 
-    @GetMapping("/indicators")
+    @GetMapping
     public List<Map<String, Object>> list() {
         // r = latest record by reference date (ties: the last one entered), r2 = the one before it (for "tend");
         // freshness ("Desatualizado") is about when someone last entered anything, so it uses MAX(created_at)
         String sql = """
             SELECT i.id, i.name, i.category, i.unit, i.target_progress, i.in_review,
-                   i.update_frequency_days, i.owner_id, u.name AS owner_name,
+                   i.update_frequency_days, i.owner_id, u.name AS owner_name, i.gri_code, i.ods,
                    r.value, r2.value AS previous_value,
                    (SELECT MAX(created_at) FROM indicator_records WHERE indicator_id = i.id) AS last_update,
                    TIMESTAMPDIFF(MONTH, (SELECT MAX(created_at) FROM indicator_records WHERE indicator_id = i.id), NOW()) AS months_ago,
@@ -136,11 +163,13 @@ public class IndicatorController {
             m.put("donoId", rs.getObject("owner_id", Integer.class));
             m.put("dono", owner);
             m.put("frequencia", rs.getInt("update_frequency_days"));
+            m.put("griCodigo", rs.getString("gri_code"));
+            m.put("ods", rs.getObject("ods", Integer.class));
             return m;
         }, Auth.orgId());
     }
 
-    @PutMapping("/indicators/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<?> editar(@PathVariable int id, @RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL);
         nomeAtivo(id);
@@ -178,16 +207,23 @@ public class IndicatorController {
                 throw new ApiErro(400, "Escolha um responsável ativo da equipe.");
         }
 
+        // a client that doesn't send the tags keeps them; sending null or "" removes them
+        Map<String, Object> atuais = jdbc.queryForMap("SELECT gri_code, ods FROM indicators WHERE id = ?", id);
+        String gri = body.containsKey("griCodigo") ? griCodigo(body.get("griCodigo")) : (String) atuais.get("gri_code");
+        Integer ods = body.containsKey("ods") ? ods(body.get("ods"))
+            : atuais.get("ods") == null ? null : ((Number) atuais.get("ods")).intValue();
+
         jdbc.update("""
-            UPDATE indicators SET name = ?, category = ?, unit = ?, target_progress = ?, owner_id = ?, update_frequency_days = ?
+            UPDATE indicators SET name = ?, category = ?, unit = ?, target_progress = ?, owner_id = ?, update_frequency_days = ?,
+                                  gri_code = ?, ods = ?
             WHERE id = ? AND organization_id = ?
-            """, nome, categoria, unidade.isEmpty() ? null : unidade, prog, dono, frequencia, id, org);
+            """, nome, categoria, unidade.isEmpty() ? null : unidade, prog, dono, frequencia, gri, ods, id, org);
         registrar("editou um indicador", nome);
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
     // archiving instead of deleting: records, evidence and history keep pointing at it
-    @DeleteMapping("/indicators/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> arquivar(@PathVariable int id) {
         Auth.exigir(Auth.RESPONSAVEL);
         String nome = nomeAtivo(id);
@@ -196,7 +232,7 @@ public class IndicatorController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    @GetMapping("/indicators/archived")
+    @GetMapping("/archived")
     public List<Map<String, Object>> arquivados() {
         return jdbc.query("""
             SELECT i.id, i.name, i.category, u.name AS owner_name,
@@ -217,7 +253,7 @@ public class IndicatorController {
             }, Auth.orgId());
     }
 
-    @PostMapping("/indicators/{id}/restore")
+    @PostMapping("/{id}/restore")
     public ResponseEntity<?> restaurar(@PathVariable int id) {
         Auth.exigir(Auth.RESPONSAVEL);
         String nome = jdbc.queryForList(
@@ -230,7 +266,7 @@ public class IndicatorController {
     }
 
     // {"valor": "1.250,5", "periodo": "2026-09-30"}: a new measurement
-    @PostMapping("/indicators/{id}/records")
+    @PostMapping("/{id}/records")
     public ResponseEntity<?> novoRegistro(@PathVariable int id, @RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL);
         String nome = nomeAtivo(id);
@@ -262,7 +298,7 @@ public class IndicatorController {
         return ResponseEntity.status(201).body(Map.of("ok", true));
     }
 
-    @GetMapping("/indicators/{id}/records")
+    @GetMapping("/{id}/records")
     public Map<String, Object> historico(@PathVariable int id) {
         // archived indicators keep a readable history
         String nome = jdbc.queryForList("SELECT name FROM indicators WHERE id = ? AND organization_id = ?",

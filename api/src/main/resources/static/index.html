@@ -145,9 +145,13 @@
           <div><h1 class="titulo">Indicadores</h1><p class="sub">Acompanhe metas, valores atuais e tendências de cada indicador ESG.</p></div>
           <div class="cab-acoes">
             <button class="btn-secundario btn-com-icone" data-ver-arquivados="indicadores"><i data-icon="archive"></i>Ver arquivados</button>
+            <button class="btn-secundario btn-com-icone" id="btn-csv-modelo"><i data-icon="download"></i>Baixar modelo</button>
+            <button class="btn-secundario btn-com-icone" id="btn-csv-exportar"><i data-icon="download"></i>Exportar CSV</button>
+            <button class="btn-secundario btn-com-icone" id="btn-csv-importar" data-perm="importar"><i data-icon="upload"></i>Importar CSV</button>
             <button class="btn-primario" data-novo data-perm="indicadores"><i data-icon="plus"></i>Novo indicador</button>
           </div>
         </div>
+        <p class="mensagem-erro" id="csv-erro" role="alert"></p>
         <div class="chips">
           <button class="chip ativo" data-filter="todos">Todos</button>
           <button class="chip" data-filter="Ambiental">Ambiental</button>
@@ -388,6 +392,14 @@
       <input type="text" id="f-valor" placeholder="Valor (ex: 120 t)">
       <input type="number" id="f-prog" placeholder="Progresso da meta (%)" min="0" max="100">
     </div>
+    <div class="linha-form">
+      <label class="campo">GRI
+        <select id="f-gri" data-opcoes-gri></select>
+      </label>
+      <label class="campo">ODS
+        <select id="f-ods" data-opcoes-ods></select>
+      </label>
+    </div>
     <div class="anexos">
       <button type="button" class="btn-secundario btn-anexar" id="f-anexar"><i data-icon="paperclip"></i>Anexar evidências</button>
       <small class="dica">Opcional · PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 10 MB cada</small>
@@ -560,6 +572,14 @@
     <label class="campo">Responsável
       <select id="ind-dono"></select>
     </label>
+    <div class="linha-form">
+      <label class="campo">GRI
+        <select id="ind-gri" data-opcoes-gri></select>
+      </label>
+      <label class="campo">ODS
+        <select id="ind-ods" data-opcoes-ods></select>
+      </label>
+    </div>
     <p class="mensagem-erro" id="ind-erro" role="alert"></p>
     <div class="acoes-form">
       <button type="button" id="ind-cancelar" class="btn-secundario">Cancelar</button>
@@ -583,6 +603,28 @@
     </div>
   </div>
 </dialog>
+<dialog id="modal-import" class="dialog-largo" aria-labelledby="import-titulo">
+  <form class="formulario" id="import-form" novalidate>
+    <h2 id="import-titulo">Importar indicadores (CSV)</h2>
+    <label class="campo">Arquivo CSV
+      <input type="file" id="import-arquivo" accept=".csv,text/csv">
+      <small class="dica">No Excel, use Salvar como &gt; CSV (separado por ponto e vírgula). Até 1 MB e 500 linhas. Colunas: nome; categoria; unidade; valor; periodo; progresso_meta; responsavel_email; gri; ods.</small>
+    </label>
+    <p class="import-resumo" id="import-resumo" aria-live="polite"></p>
+    <div class="tabela-rolagem" id="import-previa" hidden>
+      <table class="tabela">
+        <caption class="sr-only">Prévia da importação, uma linha por linha do arquivo</caption>
+        <thead><tr><th scope="col" class="num">Linha</th><th scope="col">Indicador</th><th scope="col">Status</th></tr></thead>
+        <tbody id="import-linhas"></tbody>
+      </table>
+    </div>
+    <p class="mensagem-erro" id="import-erro" role="alert"></p>
+    <div class="acoes-form">
+      <button type="button" id="import-cancelar" class="btn-secundario">Cancelar</button>
+      <button type="submit" id="import-confirmar" class="btn-primario" disabled>Confirmar importação</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="modal-confirmar" aria-labelledby="conf-titulo">
   <div class="formulario">
     <h2 id="conf-titulo"></h2>
@@ -602,7 +644,17 @@
         <option value="semestral">Relatório parcial/semestral</option>
         <option value="anual">Relatório anual</option>
         <option value="intervalo">Definir intervalo</option>
+        <option value="auditoria" data-perm-opcao="auditoria">Pacote de auditoria</option>
       </select>
+    </label>
+    <label class="campo" id="rel-tipo-campo" hidden>Período
+      <select id="rel-tipo">
+        <option value="mensal">Mensal</option>
+        <option value="semestral">Semestral</option>
+        <option value="anual">Anual</option>
+        <option value="intervalo">Definir intervalo</option>
+      </select>
+      <small class="dica">Todos os valores registrados no período, as evidências com revisão e as lacunas, para entregar à auditoria.</small>
     </label>
     <div class="linha-form" data-rel-modo="mensal">
       <label class="campo">Mês

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  * they disappear by themselves once the cause is fixed.
  */
 @RestController
+@RequestMapping("/tasks")
 public class TaskController {
 
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -68,7 +70,7 @@ public class TaskController {
             Auth.orgId(), Auth.userId(), acao, detalhe.length() > 255 ? detalhe.substring(0, 254) + "…" : detalhe);
     }
 
-    @GetMapping("/tasks")
+    @GetMapping
     public List<Map<String, Object>> list() {
         int org = Auth.orgId();
         LocalDate hoje = LocalDate.now(ZONA);
@@ -192,7 +194,7 @@ public class TaskController {
         return new Manual(num, (String) r.get("description"), prazo, resp == null ? null : ((Number) resp).intValue());
     }
 
-    @PostMapping("/tasks")
+    @PostMapping
     public ResponseEntity<?> criar(@RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL);
         Dados d = validar(body, null, null);
@@ -214,7 +216,7 @@ public class TaskController {
         return ResponseEntity.status(201).body(Map.of("id", kh.getKey().intValue()));
     }
 
-    @PutMapping("/tasks/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<?> editar(@PathVariable String id, @RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL);
         Manual t = manual(id);
@@ -227,7 +229,7 @@ public class TaskController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
-    @DeleteMapping("/tasks/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> excluir(@PathVariable String id) {
         Auth.exigir(Auth.RESPONSAVEL);
         Manual t = manual(id);
@@ -237,7 +239,7 @@ public class TaskController {
     }
 
     // ticks / unticks a manual task
-    @PatchMapping("/tasks/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<?> concluir(@PathVariable String id, @RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL);
         Manual t = manual(id);
