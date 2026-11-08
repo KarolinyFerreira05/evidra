@@ -53,16 +53,12 @@ public class UserController {
 
     // what a member still holds; deactivating them requires handing this over
     private static final String INDICADORES_DONO = "SELECT COUNT(*) FROM indicators WHERE owner_id = ? AND organization_id = ? AND archived = FALSE";
-    private static final String PENDENCIAS_ABERTAS =
-        "SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND organization_id = ? AND origin = 'manual' AND done = FALSE";
 
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(defaultValue = "false") boolean inativos) {
         return jdbc.query("""
             SELECT u.id, u.name, u.job_title, u.focus_category, u.role, u.active, u.deactivated_at,
-                   (SELECT COUNT(*) FROM indicators i WHERE i.owner_id = u.id AND i.organization_id = u.organization_id AND i.archived = FALSE) AS indicadores,
-                   (SELECT COUNT(*) FROM tasks t WHERE t.assignee_id = u.id AND t.organization_id = u.organization_id
-                       AND t.origin = 'manual' AND t.done = FALSE) AS pendencias
+                   (SELECT COUNT(*) FROM indicators i WHERE i.owner_id = u.id AND i.organization_id = u.organization_id AND i.archived = FALSE) AS indicadores
             FROM users u
             WHERE u.organization_id = ? AND (u.active = TRUE OR ?)
             ORDER BY u.active DESC, u.id
@@ -78,7 +74,6 @@ public class UserController {
                 var desde = rs.getTimestamp("deactivated_at");
                 m.put("desativadoEm", desde == null ? null : desde.toLocalDateTime().toLocalDate().toString());
                 m.put("indicadores", rs.getInt("indicadores"));
-                m.put("pendencias", rs.getInt("pendencias"));
                 return m;
             }, Auth.orgId(), inativos);
     }
@@ -170,8 +165,8 @@ public class UserController {
     }
 
     /**
-     * {"ativo": false, "transferTo": 3} deactivates a member, handing their indicators and open manual tasks
-     * to another active member; without transferTo, a member who still holds something gets 409 with the counts.
+     * {"ativo": false, "transferTo": 3} deactivates a member, handing their indicators
+     * to another active member; without transferTo, a member who still holds any gets 409 with the count.
      * {"ativo": true} reactivates.
      */
     @PatchMapping("/{id}/active")
@@ -200,17 +195,14 @@ public class UserController {
             throw new ApiErro(400, "Não é possível desativar o último administrador ativo.");
 
         int indicadores = jdbc.queryForObject(INDICADORES_DONO, Integer.class, id, org);
-        int pendencias = jdbc.queryForObject(PENDENCIAS_ABERTAS, Integer.class, id, org);
         Object destino = body.get("transferTo");
         String detalhe = nome;
-        if (indicadores + pendencias > 0) {
+        if (indicadores > 0) {
             if (destino == null || str(destino).isEmpty()) {
                 Map<String, Object> out = new LinkedHashMap<>();
                 out.put("erro", nome + " ainda é responsável por " + indicadores + (indicadores == 1 ? " indicador" : " indicadores")
-                    + " e " + pendencias + (pendencias == 1 ? " pendência aberta" : " pendências abertas")
                     + ". Escolha quem vai assumir.");
                 out.put("indicadores", indicadores);
-                out.put("pendencias", pendencias);
                 return ResponseEntity.status(409).body(out);
             }
             int para;
@@ -223,11 +215,7 @@ public class UserController {
                 "SELECT name FROM users WHERE id = ? AND organization_id = ? AND active = TRUE", String.class, para, org);
             if (para == id || nomePara.isEmpty()) throw new ApiErro(400, "Escolha um membro ativo para assumir.");
             jdbc.update("UPDATE indicators SET owner_id = ? WHERE owner_id = ? AND organization_id = ? AND archived = FALSE", para, id, org);
-            jdbc.update("""
-                UPDATE tasks SET assignee_id = ?
-                WHERE assignee_id = ? AND organization_id = ? AND origin = 'manual' AND done = FALSE
-                """, para, id, org);
-            detalhe = nome + " → " + nomePara.get(0) + " assumiu " + indicadores + " ind. e " + pendencias + " pend.";
+            detalhe = nome + " → " + nomePara.get(0) + " assumiu " + indicadores + " ind.";
         }
         jdbc.update("UPDATE users SET active = FALSE, deactivated_at = NOW() WHERE id = ?", id);
         registrar("desativou um membro", detalhe);

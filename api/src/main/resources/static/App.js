@@ -59,7 +59,6 @@ const PERFIS = { admin: "Administrador", responsavel: "Responsável por dados", 
 const PERMISSOES = {
   indicadores: ["admin", "responsavel"],
   evidencias: ["admin", "responsavel"],
-  pendencias: ["admin", "responsavel"],
   relatorios: ["admin", "responsavel", "auditor"],
   equipe: ["admin"],
   config: ["admin"],
@@ -369,28 +368,20 @@ function pesoPrioridade(p) {
 }
 function renderPendencias() {
   const abertas = tarefas.filter(t => !t.feita).length;
-  $("sub-pend").textContent = `${abertas} ${abertas === 1 ? "tarefa aberta" : "tarefas abertas"}.${pode("pendencias") ? " Clique em uma tarefa para marcá-la como concluída." : ""} As do sistema somem sozinhas quando o problema é resolvido.`;
+  $("sub-pend").textContent = `${abertas} ${abertas === 1 ? "tarefa aberta" : "tarefas abertas"}. Elas somem sozinhas quando o problema é resolvido.`;
 
   // cópia ordenada: não altera o array original
   const nomeInd = id => indicadores.find(i => i.id === id)?.nome;
   const ordenadas = tarefas.filter(t => bate(t.texto, t.quem, t.prio, t.Prazo, nomeInd(t.indicadorId)))
     .sort((a, b) => pesoPrioridade(a.prio) - pesoPrioridade(b.prio));
   $("lista-pend").innerHTML = ordenadas.length ? ordenadas.map(t => {
-    const sistema = t.origem === "sistema", editavel = !sistema && pode("pendencias");
     const ind = t.indicadorId != null && !String(t.id).startsWith("sys-ind-") ? indicadores.find(i => i.id === t.indicadorId) : null;
     return `
-    <div class="linha pend ${t.feita ? "feita" : ""} ${editavel ? "" : "pend-sistema"}" ${editavel ? `data-tarefa="${t.id}"` : ""}>
-      ${sistema
-        ? `<span class="circulo circulo-sistema" title="Gerada pelo sistema">${ic("cog")}</span>`
-        : !editavel ? `<span class="circulo">${t.feita ? ic("check") : ""}</span>`
-        : `<button class="circulo" aria-label="${t.feita ? "Reabrir" : "Concluir"}: ${esc(t.texto)}">${t.feita ? ic("check") : ""}</button>`}
+    <div class="linha pend pend-sistema">
+      <span class="circulo circulo-sistema" title="Gerada pelo sistema">${ic("cog")}</span>
       <div class="corpo"><strong>${esc(t.texto)}</strong><small>${esc(t.quem)} · Prazo ${esc(t.Prazo)}${ind ? " · " + esc(ind.nome) : ""}</small></div>
-      ${sistema ? `<span class="pill mute">Sistema</span>` : ""}
-      <span class="pill ${t.feita ? "mute" : t.prio === "Alta" ? "warn" : t.prio === "Média" ? "info" : "mute"}">${t.feita ? "Concluída" : t.prio}</span>
-      ${!editavel ? "" : `<span class="acoes-pend">
-        <button class="btn-icone" data-editar-pend="${t.id}" aria-label="Editar: ${esc(t.texto)}" title="Editar">${ic("edit")}</button>
-        <button class="btn-icone" data-excluir-pend="${t.id}" aria-label="Excluir: ${esc(t.texto)}" title="Excluir">${ic("trash")}</button>
-      </span>`}
+      <span class="pill mute">Sistema</span>
+      <span class="pill ${t.prio === "Alta" ? "warn" : t.prio === "Média" ? "info" : "mute"}">${t.prio}</span>
     </div>`;
   }).join("") : vazio("Nenhuma pendência.");
 }
@@ -535,12 +526,6 @@ document.addEventListener("click", e => {
 
     const atu = e.target.closest("[data-atualizar]");
   if (atu) { abrirAtualizar(indicadores.find(i => String(i.id) === atu.dataset.atualizar)); return; }
-  const tar = e.target.closest("[data-tarefa]");
-  // only manual tasks carry data-tarefa; their edit/delete icons are handled in the Pendências section
-  if (tar && !e.target.closest("[data-editar-pend], [data-excluir-pend]")) {
-    alternarTarefa(tarefas.find(x => String(x.id) === tar.dataset.tarefa));
-    return;
-  }
   const mod = e.target.closest("[data-modelo]");
   if (mod) { abrirNovoRelatorio(modelos[+mod.dataset.modelo].chave); return; }
 
@@ -1022,17 +1007,17 @@ function abrirDesativar(p) {
   membroDesativando = p;
   $("desativar-form").reset();
   $("desativar-texto").textContent = `${p.nome} perde o acesso ao Evidra. O nome continua no histórico, e o membro pode ser reativado depois.`;
-  mostrarTransferencia(p.indicadores || 0, p.pendencias || 0);
+  mostrarTransferencia(p.indicadores || 0);
   $("desativar-erro").style.display = "none";
   $("modal-desativar").showModal();
   $("desativar-cancelar").focus();
 }
-function mostrarTransferencia(nInd, nPend) {
-  const precisa = nInd + nPend > 0;
+function mostrarTransferencia(nInd) {
+  const precisa = nInd > 0;
   $("desativar-transferir").hidden = !precisa;
   if (!precisa) return;
   const p = membroDesativando;
-  $("desativar-pendente").textContent = `${p.nome} é responsável por ${nInd} ${nInd === 1 ? "indicador" : "indicadores"} e ${nPend} ${nPend === 1 ? "pendência aberta" : "pendências abertas"}. Eles passam para:`;
+  $("desativar-pendente").textContent = `${p.nome} é responsável por ${nInd} ${nInd === 1 ? "indicador" : "indicadores"}. Eles passam para:`;
   $("desativar-para").innerHTML = `<option value="">Escolha…</option>` + pessoas
     .filter(x => x.ativo !== false && x.id !== p.id).map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
 }
@@ -1055,7 +1040,7 @@ $("desativar-form").addEventListener("submit", e => {
     if (resp && resp.status === 409) {
       // something was assigned meanwhile: show the server's counts and ask again
       const d = await resp.json().catch(() => ({}));
-      mostrarTransferencia(d.indicadores || 0, d.pendencias || 0);
+      mostrarTransferencia(d.indicadores || 0);
       return erro(d.erro || "Escolha quem vai assumir.");
     }
     if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível desativar."));
@@ -1083,7 +1068,7 @@ async function abrirPessoa(p) {
 }
 function renderPessoa(d) {
   const inds = indicadores.filter(i => i.donoId === d.id);
-  const pends = tarefas.filter(t => t.origem !== "sistema" && !t.feita && t.responsavelId === d.id);
+  const pends = tarefas.filter(t => !t.feita && t.responsavelId === d.id);
   const ev = d.evidencias;
   const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const numero = (valor, rotulo, detalhe = "") => `<div class="pessoa-num"><strong>${valor}</strong><span>${rotulo}</span>${detalhe ? `<small>${detalhe}</small>` : ""}</div>`;
@@ -1157,107 +1142,6 @@ $("grade-equipe").addEventListener("click", e => {
 const hojeISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const brParaISO = br => /^\d{2}\/\d{2}\/\d{4}$/.test(br) ? br.split("/").reverse().join("-") : "";
 const erroResposta = async (resp, padrao) => (resp ? (await resp.json().catch(() => ({}))).erro : null) || padrao;
-
-function mostrarErroPend(msg) {
-  $("pend-erro").textContent = msg || "";
-  $("pend-erro").style.display = msg ? "block" : "none";
-}
-
-// ticks a manual task right away and undoes it if the server refuses
-async function alternarTarefa(t) {
-  if (!t || t.origem === "sistema") return;
-  t.feita = !t.feita;
-  renderPendencias(); renderBadges();
-  const resp = await fetch(`${API}/tasks/${t.id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ done: t.feita })
-  }).catch(() => null);
-  if (resp && resp.ok) { mostrarErroPend(""); return; }
-  t.feita = !t.feita;
-  renderPendencias(); renderBadges();
-  mostrarErroPend(await erroResposta(resp, "Não foi possível atualizar a pendência."));
-}
-
-let pendEditando = null; // the task being edited, or null when creating
-function abrirPendencia(t = null) {
-  pendEditando = t;
-  $("pend-form").reset();
-  $("pend-titulo").textContent = t ? "Editar pendência" : "Nova pendência";
-  $("pend-salvar").textContent = t ? "Salvar alterações" : "Criar pendência";
-  $("pend-indicador").innerHTML = opcoesIndicadores("Nenhum indicador");
-  // active members only; an inactive one already on the task stays selectable so the task can still be edited
-  $("pend-resp").innerHTML = `<option value="">Escolha…</option>` +
-    pessoas.filter(p => p.id != null && (p.ativo !== false || p.id === t?.responsavelId))
-      .map(p => `<option value="${p.id}">${esc(p.nome)}${p.ativo === false ? " (inativo)" : ""}</option>`).join("");
-  const prazoAtual = t ? brParaISO(t.Prazo) : "";
-  // an existing deadline that already passed can be kept, but not moved further into the past
-  $("pend-prazo").min = prazoAtual && prazoAtual < hojeISO() ? prazoAtual : hojeISO();
-  if (t) {
-    $("pend-texto").value = t.texto;
-    $("pend-indicador").value = t.indicadorId ?? "";
-    $("pend-resp").value = t.responsavelId ?? "";
-    $("pend-prazo").value = prazoAtual;
-    $("pend-prio").value = { "Alta": "alta", "Média": "media", "Baixa": "baixa" }[t.prio] || "media";
-  }
-  $("pend-form-erro").style.display = "none";
-  $("modal-pend").showModal();
-  $("pend-texto").focus();
-}
-
-async function salvarPendencia() {
-  const erro = msg => { $("pend-form-erro").textContent = msg; $("pend-form-erro").style.display = "block"; };
-  const dados = {
-    titulo: $("pend-texto").value.trim(),
-    indicadorId: $("pend-indicador").value ? Number($("pend-indicador").value) : null,
-    responsavelId: $("pend-resp").value ? Number($("pend-resp").value) : null,
-    prazo: $("pend-prazo").value,
-    prio: $("pend-prio").value
-  };
-  const prazoAtual = pendEditando ? brParaISO(pendEditando.Prazo) : "";
-  if (!dados.titulo) return erro("Informe o título.");
-  if (!dados.responsavelId) return erro("Escolha um responsável.");
-  if (!dados.prazo) return erro("Informe o prazo.");
-  if (dados.prazo < hojeISO() && dados.prazo !== prazoAtual) return erro("O prazo não pode estar no passado.");
-
-  const resp = await fetch(pendEditando ? `${API}/tasks/${pendEditando.id}` : `${API}/tasks`, {
-    method: pendEditando ? 'PUT' : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dados)
-  }).catch(() => null);
-  if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível salvar a pendência."));
-  $("modal-pend").close();
-  mostrarErroPend("");
-  await carregar();
-}
-
-let pendExcluindo = null;
-function confirmarExclusao(t) {
-  pendExcluindo = t;
-  $("excluir-texto").textContent = `"${t.texto}" será excluída. Essa ação não pode ser desfeita.`;
-  $("modal-excluir").showModal();
-  $("excluir-cancelar").focus(); // the safe choice gets the focus
-}
-
-$("btn-nova-pend").addEventListener("click", () => abrirPendencia());
-$("pend-cancelar").addEventListener("click", () => $("modal-pend").close());
-$("pend-form").addEventListener("submit", e => { e.preventDefault(); ocupar($("pend-salvar"), salvarPendencia); });
-$("excluir-cancelar").addEventListener("click", () => $("modal-excluir").close());
-aoClicar("excluir-confirmar", async () => {
-  const t = pendExcluindo;
-  const resp = await fetch(`${API}/tasks/${t.id}`, { method: 'DELETE' }).catch(() => null);
-  $("modal-excluir").close();
-  if (!resp || !resp.ok) { mostrarErroPend(await erroResposta(resp, "Não foi possível excluir a pendência.")); return; }
-  mostrarErroPend("");
-  await carregar();
-});
-$("lista-pend").addEventListener("click", e => {
-  const editar = e.target.closest("[data-editar-pend]"), excluir = e.target.closest("[data-excluir-pend]");
-  const id = editar?.dataset.editarPend ?? excluir?.dataset.excluirPend;
-  const t = id && tarefas.find(x => String(x.id) === id);
-  if (!t) return;
-  if (editar) abrirPendencia(t); else confirmarExclusao(t);
-});
 
 // evidências: selecionar e arrastar
 // same rules as EvidenceController; the server checks again
@@ -1919,14 +1803,6 @@ const diasAte = br => {
 function montarNotificacoes() {
   const u = usuarioAtual(), eu = u.id, pref = prefsNotif(), l = [];
   if (pref.prazos) {
-    tarefas.filter(t => t.origem !== "sistema" && !t.feita && t.responsavelId === eu).forEach(t => {
-      const d = diasAte(t.Prazo);
-      if (d == null || d > 7) return;
-      l.push({ id: `pend-${t.id}-${t.Prazo}`, icone: "clip", tom: d < 0 ? "amarelo" : "", ordem: d < 0 ? 0 : 3,
-        titulo: d < 0 ? `Pendência atrasada: ${t.texto}`
-          : `Pendência vence ${d === 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`}: ${t.texto}`,
-        det: `Prazo ${t.Prazo} · prioridade ${t.prio.toLowerCase()}`, view: "pendencias" });
-    });
     // outdated indicators: the owner's business; admins see all of them
     tarefas.filter(t => String(t.id).startsWith("sys-ind-") && (t.responsavelId === eu || u.role === "admin")).forEach(t => {
       const ind = indicadores.find(i => i.id === t.indicadorId);
@@ -2028,7 +1904,6 @@ const FOCOS = { ambiental: "Ambiental", social: "Social", governanca: "Governan�
 const ACOES_PERFIL = [
   ["indicadores", "Cadastrar, atualizar e arquivar indicadores"],
   ["evidencias", "Enviar e vincular evidências"],
-  ["pendencias", "Criar, editar e concluir pendências"],
   ["importar", "Importar indicadores de uma planilha (CSV)"],
   ["relatorios", "Gerar e arquivar relatórios"],
   ["auditoria", "Gerar o pacote de auditoria"],
@@ -2052,7 +1927,7 @@ function renderPerfil() {
 
   const meusInd = indicadores.filter(i => i.donoId === u.id);
   const desat = meusInd.filter(i => i.status === "Desatualizado").length;
-  const minhasPend = tarefas.filter(t => t.origem !== "sistema" && !t.feita && t.responsavelId === u.id);
+  const minhasPend = tarefas.filter(t => !t.feita && t.responsavelId === u.id);
   const atrasadas = minhasPend.filter(t => (diasAte(t.Prazo) ?? 0) < 0).length;
   const minhasEv = docs.filter(d => d.enviadoPorId === u.id);
   const aprovadas = minhasEv.filter(d => d.status === "Aprovada").length;

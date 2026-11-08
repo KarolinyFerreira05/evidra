@@ -202,9 +202,7 @@
         <p class="pre-titulo">Rotina</p>
         <div class="cab">
           <div><h1 class="titulo">Pendências</h1><p class="sub" id="sub-pend"></p></div>
-          <button class="btn-primario" id="btn-nova-pend" data-perm="pendencias"><i data-icon="plus"></i>Nova pendência</button>
         </div>
-        <p class="mensagem-erro" id="pend-erro" role="alert"></p>
         <div class="painel sem-pad" id="lista-pend"></div>
       </section>
 
@@ -241,7 +239,7 @@
           <div class="painel">
             <h2>Notificações</h2>
             <p class="painel-sub painel-sub-espaco">Escolha o que aparece no sino. Vale só para você, neste navegador.</p>
-            <label class="toggle-linha"><span>Prazos de indicadores<small>Indicadores desatualizados e pendências vencendo em até 7 dias</small></span><input type="checkbox" class="switch" id="notif-prazos" checked></label>
+            <label class="toggle-linha"><span>Prazos de indicadores<small>Indicadores desatualizados</small></span><input type="checkbox" class="switch" id="notif-prazos" checked></label>
             <label class="toggle-linha"><span>Novas evidências<small>Evidências para revisar e revisões das que você enviou</small></span><input type="checkbox" class="switch" id="notif-evidencias" checked></label>
             <label class="toggle-linha"><span>Atividade da equipe<small>O que outras pessoas fizeram recentemente</small></span><input type="checkbox" class="switch" id="notif-atividade" checked></label>
           </div>
@@ -430,37 +428,6 @@
     <div class="acoes-form">
       <button type="button" id="ev-cancelar" class="btn-secundario">Cancelar</button>
       <button type="submit" id="ev-enviar" class="btn-primario">Enviar evidência</button>
-    </div>
-  </form>
-</dialog>
-<dialog id="modal-pend" aria-labelledby="pend-titulo">
-  <form class="formulario" id="pend-form" novalidate>
-    <h2 id="pend-titulo">Nova pendência</h2>
-    <label class="campo">Título
-      <input type="text" id="pend-texto" maxlength="255" required placeholder="Ex.: Coletar faturas de energia do trimestre">
-    </label>
-    <label class="campo">Indicador (opcional)
-      <select id="pend-indicador"></select>
-    </label>
-    <div class="linha-form">
-      <label class="campo">Responsável
-        <select id="pend-resp" required></select>
-      </label>
-      <label class="campo">Prazo
-        <input type="date" id="pend-prazo" required>
-      </label>
-    </div>
-    <label class="campo">Prioridade
-      <select id="pend-prio">
-        <option value="alta">Alta</option>
-        <option value="media" selected>Média</option>
-        <option value="baixa">Baixa</option>
-      </select>
-    </label>
-    <p class="mensagem-erro" id="pend-form-erro" role="alert"></p>
-    <div class="acoes-form">
-      <button type="button" id="pend-cancelar" class="btn-secundario">Cancelar</button>
-      <button type="submit" id="pend-salvar" class="btn-primario">Criar pendência</button>
     </div>
   </form>
 </dialog>
@@ -693,16 +660,6 @@
       <button type="submit" id="rel-gerar" class="btn-primario">Gerar relatório</button>
     </div>
   </form>
-</dialog>
-<dialog id="modal-excluir" aria-labelledby="excluir-titulo">
-  <div class="formulario">
-    <h2 id="excluir-titulo">Excluir pendência?</h2>
-    <p class="confirmar-texto" id="excluir-texto"></p>
-    <div class="acoes-form">
-      <button type="button" id="excluir-cancelar" class="btn-secundario">Cancelar</button>
-      <button type="button" id="excluir-confirmar" class="btn-perigo">Excluir</button>
-    </div>
-  </div>
 </dialog>
 <dialog id="modal-pessoa" class="dialog-largo" aria-labelledby="pessoa-titulo">
   <div class="formulario">
