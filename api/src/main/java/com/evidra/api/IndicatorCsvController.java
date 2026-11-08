@@ -163,6 +163,7 @@ public class IndicatorCsvController {
         BigDecimal valor;
         LocalDate periodo;
         int prog;
+        int frequencia;
         Integer donoId;
         String gri;
         Integer ods;
@@ -354,6 +355,18 @@ public class IndicatorCsvController {
                 }
             }
 
+            // optional column, so it is not in COLUNAS
+            String freq = l.cel.getOrDefault("frequencia_dias", "");
+            if (freq.isEmpty()) l.frequencia = 90;
+            else {
+                try {
+                    l.frequencia = Integer.parseInt(freq);
+                    if (l.frequencia < 1 || l.frequencia > 3650) throw new NumberFormatException();
+                } catch (NumberFormatException e) {
+                    l.erros.add("Número inválido em frequencia_dias (“" + freq + "”): use um inteiro de 1 a 3650.");
+                }
+            }
+
             String email = l.cel.get("responsavel_email").toLowerCase(Locale.ROOT);
             if (email.isEmpty()) l.donoId = Auth.userId(); // same as "Novo indicador": whoever creates it
             else {
@@ -400,8 +413,8 @@ public class IndicatorCsvController {
                     KeyHolder kh = new GeneratedKeyHolder();
                     jdbc.update(con -> {
                         PreparedStatement ps = con.prepareStatement("""
-                            INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id, gri_code, ods)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id, gri_code, ods, update_frequency_days)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, Statement.RETURN_GENERATED_KEYS);
                         ps.setInt(1, org);
                         ps.setString(2, l.nome);
@@ -411,6 +424,7 @@ public class IndicatorCsvController {
                         ps.setInt(6, l.donoId);
                         ps.setString(7, l.gri);
                         ps.setObject(8, l.ods, Types.TINYINT);
+                        ps.setInt(9, l.frequencia);
                         return ps;
                     }, kh);
                     id = kh.getKey().intValue();

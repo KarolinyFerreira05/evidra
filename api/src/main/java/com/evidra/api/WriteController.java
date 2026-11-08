@@ -62,6 +62,14 @@ public class WriteController {
         if (nome.isEmpty() || cat == null)
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid data"));
 
+        int frequencia;
+        try {
+            frequencia = str(body.get("frequencia")).isEmpty() ? 90 : Integer.parseInt(str(body.get("frequencia")));
+        } catch (NumberFormatException e) {
+            throw new ApiErro(400, "A frequência de atualização vai de 1 a 3650 dias.");
+        }
+        if (frequencia < 1 || frequencia > 3650) throw new ApiErro(400, "A frequência de atualização vai de 1 a 3650 dias.");
+
         String unit = m.group(2).isBlank() ? null : m.group(2).trim();
         String gri = IndicatorController.griCodigo(body.get("griCodigo"));
         Integer ods = IndicatorController.ods(body.get("ods"));
@@ -69,8 +77,8 @@ public class WriteController {
         KeyHolder kh = new GeneratedKeyHolder();
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement(
-                "INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id, gri_code, ods) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+                "INSERT INTO indicators (organization_id, name, category, unit, target_progress, owner_id, gri_code, ods, update_frequency_days) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
             ps.setInt(1, Auth.orgId());
             ps.setString(2, nome);
             ps.setString(3, cat);
@@ -79,6 +87,7 @@ public class WriteController {
             ps.setInt(6, Auth.userId());
             ps.setString(7, gri);
             ps.setObject(8, ods, Types.TINYINT);
+            ps.setInt(9, frequencia);
             return ps;
         }, kh);
         int id = kh.getKey().intValue();

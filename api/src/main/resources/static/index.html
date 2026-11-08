@@ -389,6 +389,9 @@
       <input type="text" id="f-valor" placeholder="Valor (ex: 120 t)">
       <input type="number" id="f-prog" placeholder="Progresso da meta (%)" min="0" max="100">
     </div>
+    <label class="campo">Atualizar a cada (dias)
+      <input type="number" id="f-freq" min="1" max="3650" step="1" value="90" required>
+    </label>
     <div class="linha-form">
       <label class="campo">GRI
         <select id="f-gri" data-opcoes-gri></select>
@@ -574,7 +577,7 @@
     <h2 id="import-titulo">Importar indicadores (CSV)</h2>
     <label class="campo">Arquivo CSV
       <input type="file" id="import-arquivo" accept=".csv,text/csv">
-      <small class="dica">No Excel, use Salvar como &gt; CSV (separado por ponto e vírgula). Até 1 MB e 500 linhas. Colunas: nome; categoria; unidade; valor; periodo; progresso_meta; responsavel_email; gri; ods.</small>
+      <small class="dica">No Excel, use Salvar como &gt; CSV (separado por ponto e vírgula). Até 1 MB e 500 linhas. Colunas: nome; categoria; unidade; valor; periodo; progresso_meta; responsavel_email; gri; ods. Opcional: frequencia_dias (padrão 90).</small>
     </label>
     <p class="import-resumo" id="import-resumo" aria-live="polite"></p>
     <div class="tabela-rolagem" id="import-previa" hidden>

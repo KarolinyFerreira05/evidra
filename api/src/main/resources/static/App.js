@@ -585,6 +585,11 @@ aoClicar("f-add", async () => {
     $("f-erro").textContent = "Preencha nome, valor e progresso da meta (0 a 100).";
     $("f-erro").style.display = "block"; return;
   }
+  const frequencia = $("f-freq").value;
+  if (!/^\d+$/.test(frequencia) || +frequencia < 1 || +frequencia > 3650) {
+    $("f-erro").textContent = "A frequência de atualização vai de 1 a 3650 dias.";
+    $("f-erro").style.display = "block"; return;
+  }
   const invalidos = errosArquivos(anexosIndicador);
   if (invalidos.length) {
     $("f-erro").textContent = invalidos.join("\n");
@@ -593,7 +598,7 @@ aoClicar("f-add", async () => {
   const resp = await fetch(`${API}/indicators`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, cat: $("f-categoria").value, valor, prog, griCodigo: $("f-gri").value || null, ods: $("f-ods").value || null })
+    body: JSON.stringify({ nome, cat: $("f-categoria").value, valor, prog, frequencia, griCodigo: $("f-gri").value || null, ods: $("f-ods").value || null })
   });
   if (!resp.ok) {
     $("f-erro").textContent = await erroResposta(resp, "Não foi possível salvar. Use um valor como 120 t ou 45%.");
@@ -617,6 +622,7 @@ aoClicar("f-add", async () => {
 
   const enviados = anexosIndicador.length - falhas.length;
   ["f-nome", "f-valor", "f-prog", "f-gri", "f-ods"].forEach(id => { $(id).value = ""; });
+  $("f-freq").value = 90;
   anexosIndicador = [];
   renderAnexos();
   $("modal").close();
