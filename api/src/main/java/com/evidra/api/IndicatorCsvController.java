@@ -111,13 +111,13 @@ public class IndicatorCsvController {
         StringBuilder sb = new StringBuilder(linhaCsv(COLUNAS));
         // latest record by reference date, same rule as GET /indicators
         jdbc.query("""
-            SELECT i.name, i.category, i.unit, i.target_progress, i.gri_code, i.ods, u.email, r.value, r.period
+            SELECT i.name, i.category, i.unit, i.target_progress, i.gri_code, i.ods, u.email, r.`value`, r.period
             FROM indicators i
             LEFT JOIN users u ON u.id = i.owner_id
-            LEFT JOIN indicator_records r ON r.id = (
-                SELECT id FROM indicator_records
-                WHERE indicator_id = i.id
-                ORDER BY period DESC, created_at DESC, id DESC LIMIT 1)
+            LEFT JOIN (
+                SELECT indicator_id, `value`, period,
+                       ROW_NUMBER() OVER (PARTITION BY indicator_id ORDER BY period DESC, created_at DESC, id DESC) AS rn
+                FROM indicator_records) r ON r.indicator_id = i.id AND r.rn = 1
             WHERE i.organization_id = ? AND i.archived = FALSE
             ORDER BY FIELD(i.category, 'ambiental', 'social', 'governanca'), i.name
             """, rs -> {

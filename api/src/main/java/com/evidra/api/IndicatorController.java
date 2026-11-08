@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/indicators")
 public class IndicatorController {
 
+    private static final Logger log = LoggerFactory.getLogger(IndicatorController.class);
     private static final DateTimeFormatter BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final ZoneId ZONA = ZoneId.of("America/Sao_Paulo");
     private static final Map<String, String> CAT_DB =
@@ -101,26 +104,35 @@ public class IndicatorController {
 
     @GetMapping
     public List<Map<String, Object>> list() {
+        try {
+            return listar();
+        } catch (RuntimeException e) {
+            log.error("Erro em /indicators", e);
+            throw e;
+        }
+    }
+
+    private List<Map<String, Object>> listar() {
         // r = latest record by reference date (ties: the last one entered), r2 = the one before it (for "tend");
         // freshness ("Desatualizado") is about when someone last entered anything, so it uses MAX(created_at)
         String sql = """
             SELECT i.id, i.name, i.category, i.unit, i.target_progress, i.in_review,
                    i.update_frequency_days, i.owner_id, u.name AS owner_name, i.gri_code, i.ods,
-                   r.value, r2.value AS previous_value,
-                   (SELECT MAX(created_at) FROM indicator_records WHERE indicator_id = i.id) AS last_update,
-                   TIMESTAMPDIFF(MONTH, (SELECT MAX(created_at) FROM indicator_records WHERE indicator_id = i.id), NOW()) AS months_ago,
-                   (SELECT COUNT(*) FROM evidence e
-                    WHERE e.indicator_id = i.id AND e.organization_id = i.organization_id) AS evidence_count
+                   r.`value`, r2.`value` AS previous_value,
+                   r.last_update,
+                   TIMESTAMPDIFF(MONTH, r.last_update, NOW()) AS months_ago,
+                   (SELECT COUNT(*) FROM evidence e WHERE e.indicator_id = i.id AND e.organization_id = i.organization_id) AS evidence_count
             FROM indicators i
             LEFT JOIN users u ON u.id = i.owner_id
-            LEFT JOIN indicator_records r ON r.id = (
-                SELECT id FROM indicator_records
-                WHERE indicator_id = i.id
-                ORDER BY period DESC, created_at DESC, id DESC LIMIT 1)
-            LEFT JOIN indicator_records r2 ON r2.id = (
-                SELECT id FROM indicator_records
-                WHERE indicator_id = i.id
-                ORDER BY period DESC, created_at DESC, id DESC LIMIT 1 OFFSET 1)
+            LEFT JOIN (
+                SELECT indicator_id, `value`,
+                       ROW_NUMBER() OVER (PARTITION BY indicator_id ORDER BY period DESC, created_at DESC, id DESC) AS rn,
+                       MAX(created_at) OVER (PARTITION BY indicator_id) AS last_update
+                FROM indicator_records) r ON r.indicator_id = i.id AND r.rn = 1
+            LEFT JOIN (
+                SELECT indicator_id, `value`,
+                       ROW_NUMBER() OVER (PARTITION BY indicator_id ORDER BY period DESC, created_at DESC, id DESC) AS rn
+                FROM indicator_records) r2 ON r2.indicator_id = i.id AND r2.rn = 2
             WHERE i.organization_id = ? AND i.archived = FALSE
             """;
 
