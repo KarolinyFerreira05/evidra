@@ -69,7 +69,8 @@ public class UserController {
                 m.put("nome", rs.getString("name"));
                 m.put("role", rs.getString("role"));
                 m.put("cargo", rs.getString("job_title"));
-                m.put("cat", cat(rs.getString("focus_category")));
+                String foco = rs.getString("focus_category");
+                m.put("cat", foco == null ? null : cat(foco));
                 m.put("ativo", rs.getBoolean("active"));
                 var desde = rs.getTimestamp("deactivated_at");
                 m.put("desativadoEm", desde == null ? null : desde.toLocalDateTime().toLocalDate().toString());
@@ -147,12 +148,17 @@ public class UserController {
         if (nome.isEmpty() || !email.matches("^\\S+@\\S+\\.\\S+$"))
             throw new ApiErro(400, "Informe nome e um e-mail válido.");
         String role = str(body.get("role")).isEmpty() ? Auth.RESPONSAVEL : str(body.get("role"));
-        if (!Auth.NOMES.containsKey(role)) throw new ApiErro(400, "Perfil inválido.");
+        if (!Auth.NOMES.containsKey(role)) throw new ApiErro(400, "Perfil de acesso inválido.");
+        String foco = str(body.get("foco"));
+        if (!List.of("ambiental", "social", "governanca").contains(foco))
+            throw new ApiErro(400, "Escolha a área de foco: ambiental, social ou governança.");
+        String cargo = str(body.get("cargo"));
+        if (cargo.length() > 100) throw new ApiErro(400, "O cargo pode ter no máximo 100 caracteres.");
         try {
             jdbc.update("""
                 INSERT INTO users (organization_id, name, email, password_hash, job_title, focus_category, role)
-                VALUES (?, ?, ?, 'TEMP', 'Convidado(a)', 'social', ?)
-                """, Auth.orgId(), nome, email, role);
+                VALUES (?, ?, ?, 'TEMP', ?, ?, ?)
+                """, Auth.orgId(), nome, email, cargo.isEmpty() ? "Convidado(a)" : cargo, foco, role);
         } catch (DuplicateKeyException e) {
             boolean inativo = !jdbc.queryForList(
                 "SELECT id FROM users WHERE email = ? AND organization_id = ? AND active = FALSE", Integer.class, email, Auth.orgId()).isEmpty();

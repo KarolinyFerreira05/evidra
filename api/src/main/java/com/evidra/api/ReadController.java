@@ -45,11 +45,13 @@ public class ReadController {
         return jdbc.query("""
             SELECT e.id, e.indicator_id, e.file_name, e.description, e.status, e.uploaded_at, i.name AS indicator, u.name AS uploader,
                    e.uploaded_by, e.review_note, e.reviewed_at, r.name AS reviewer,
-                   e.file_content IS NOT NULL AS has_file
+                   e.file_content IS NOT NULL AS has_file,
+                   i.unit, reg.value AS record_value, reg.period AS record_period
             FROM evidence e
             LEFT JOIN indicators i ON i.id = e.indicator_id
             JOIN users u ON u.id = e.uploaded_by
             LEFT JOIN users r ON r.id = e.reviewed_by
+            LEFT JOIN indicator_records reg ON reg.id = e.record_id
             WHERE e.organization_id = ?
             ORDER BY e.uploaded_at DESC
             """, (rs, n) -> {
@@ -73,7 +75,10 @@ public class ReadController {
                            "revisor", rs.getString("reviewer"),
                            "revisadoEm", rs.getTimestamp("reviewed_at") == null ? null
                                : rs.getTimestamp("reviewed_at").toLocalDateTime().format(BR),
-                           "nota", rs.getString("review_note"));
+                           "nota", rs.getString("review_note"),
+                           "comprova", rs.getDate("record_period") == null ? null
+                               : IndicatorController.valorComUnidade(rs.getBigDecimal("record_value"), rs.getString("unit"))
+                                 + " em " + rs.getDate("record_period").toLocalDate().format(BR));
             }, Auth.orgId());
     }
 

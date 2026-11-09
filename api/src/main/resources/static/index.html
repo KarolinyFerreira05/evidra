@@ -80,8 +80,8 @@
       <a href="#" id="btn-sair"><i data-icon="chevron"></i>Sair</a>
       <div class="usuario-wrap">
         <a href="#" class="usuario" data-view="perfil" title="Meu perfil">
-          <span class="avatar avatar-usuario" id="user-sigla">KP</span>
-          <div><strong id="user-nome">Karoliny Pimentel</strong><span id="user-cargo">Administradora</span></div>
+          <span class="avatar avatar-usuario" id="user-sigla"></span>
+          <div><strong id="user-nome"></strong><span id="user-cargo"></span></div>
           <i data-icon="chevron" class="usuario-seta"></i>
         </a>
       </div>
@@ -168,7 +168,7 @@
         <div class="dropzone" id="dropzone" data-perm="evidencias">
           <span class="dz-icone" data-icon="upload"></span>
           <strong>Arraste arquivos para cá</strong>
-          <small>PDF, planilhas (XLSX, XLS, CSV), DOCX ou imagens (PNG, JPG) de até 10 MB</small>
+          <small>PDF, planilhas (XLSX, XLS, CSV), DOCX ou imagens (PNG, JPG) de até 5 MB</small>
           <button class="btn-primario" id="btn-nova-ev"><i data-icon="plus"></i>Nova evidência</button>
         </div>
         <p class="mensagem-erro" id="ev-erro" role="alert"></p>
@@ -210,7 +210,7 @@
       <section class="view" id="view-equipe" hidden>
         <p class="pre-titulo">Pessoas</p>
         <div class="cab">
-          <div><h1 class="titulo">Equipe</h1><p class="sub">Quem cuida de cada indicador e de cada evidência.</p></div>
+          <div><h1 class="titulo">Equipe</h1><p class="sub">Quem cuida de cada indicador e de cada evidência. Cargo é a função na empresa; perfil de acesso é o que a pessoa pode fazer no sistema.</p></div>
           <button class="btn-primario" id="btn-convidar" data-perm="equipe"><i data-icon="users"></i>Convidar pessoa</button>
         </div>
         <div class="chips" id="chips-equipe" role="group" aria-label="Filtrar membros">
@@ -238,10 +238,12 @@
           </div>
           <div class="painel">
             <h2>Notificações</h2>
-            <p class="painel-sub painel-sub-espaco">Escolha o que aparece no sino. Vale só para você, neste navegador.</p>
-            <label class="toggle-linha"><span>Prazos de indicadores<small>Indicadores desatualizados</small></span><input type="checkbox" class="switch" id="notif-prazos" checked></label>
-            <label class="toggle-linha"><span>Novas evidências<small>Evidências para revisar e revisões das que você enviou</small></span><input type="checkbox" class="switch" id="notif-evidencias" checked></label>
-            <label class="toggle-linha"><span>Atividade da equipe<small>O que outras pessoas fizeram recentemente</small></span><input type="checkbox" class="switch" id="notif-atividade" checked></label>
+            <p class="painel-sub painel-sub-espaco">Escolha o que aparece no sino. Vale só para você.</p>
+            <label class="toggle-linha"><span>Indicador desatualizado<small>Indicadores seus que passaram do prazo de atualização</small></span><input type="checkbox" class="switch" data-notif-tipo="indicador_desatualizado" checked></label>
+            <label class="toggle-linha"><span>Evidência em análise<small>Evidências enviadas para análise</small></span><input type="checkbox" class="switch" data-notif-tipo="evidencia_em_analise" checked></label>
+            <label class="toggle-linha"><span>Evidência aprovada<small>Evidências suas ou dos seus indicadores</small></span><input type="checkbox" class="switch" data-notif-tipo="evidencia_aprovada" checked></label>
+            <label class="toggle-linha"><span>Evidência rejeitada<small>Evidências suas ou dos seus indicadores</small></span><input type="checkbox" class="switch" data-notif-tipo="evidencia_rejeitada" checked></label>
+            <label class="toggle-linha"><span>Relatório gerado<small>Relatórios gerados por você</small></span><input type="checkbox" class="switch" data-notif-tipo="relatorio_gerado" checked></label>
           </div>
         </div>
         <p class="nota-config">A troca de senha agora fica em <a href="#" data-view="perfil">Meu perfil</a>.</p>
@@ -402,7 +404,7 @@
     </div>
     <div class="anexos">
       <button type="button" class="btn-secundario btn-anexar" id="f-anexar"><i data-icon="paperclip"></i>Anexar evidências</button>
-      <small class="dica">Opcional · PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 10 MB cada</small>
+      <small class="dica">Opcional · PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 5 MB cada</small>
       <input type="file" id="f-arquivos" multiple hidden accept=".pdf,.xlsx,.xls,.csv,.docx,.png,.jpg,.jpeg">
       <ul class="ev-selecionados" id="f-anexos" aria-label="Arquivos anexados"></ul>
     </div>
@@ -419,9 +421,12 @@
     <label class="campo">Indicador
       <select id="ev-indicador"></select>
     </label>
+    <label class="campo" id="ev-registro-campo" hidden>Registro comprovado
+      <select id="ev-registro"></select>
+    </label>
     <label class="campo">Arquivo(s)
       <input type="file" id="ev-arquivos" multiple accept=".pdf,.xlsx,.xls,.csv,.docx,.png,.jpg,.jpeg">
-      <small class="dica">PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 10 MB cada</small>
+      <small class="dica">PDF, XLSX, XLS, CSV, DOCX, PNG ou JPG, até 5 MB cada</small>
     </label>
     <ul class="ev-selecionados" id="ev-selecionados"></ul>
     <label class="campo">Descrição (opcional)
@@ -443,9 +448,20 @@
     <label class="campo">E-mail
       <input type="email" id="convite-email" maxlength="150" required>
     </label>
-    <label class="campo">Perfil
+    <label class="campo">Cargo
+      <input type="text" id="convite-cargo" maxlength="100" placeholder="Opcional. Ex.: Analista ambiental">
+    </label>
+    <label class="campo">Área de foco
+      <select id="convite-foco" required>
+        <option value="">Escolha a área…</option>
+        <option value="ambiental">Ambiental</option>
+        <option value="social">Social</option>
+        <option value="governanca">Governança</option>
+      </select>
+    </label>
+    <label class="campo">Perfil de acesso
       <select id="convite-role">
-        <option value="responsavel" selected>Responsável por dados</option>
+        <option value="responsavel" selected>Responsável</option>
         <option value="auditor">Auditor</option>
         <option value="admin">Administrador</option>
       </select>

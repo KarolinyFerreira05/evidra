@@ -318,12 +318,13 @@ public class IndicatorController {
             .stream().findFirst().orElseThrow(() -> new ApiErro(404, "Indicador não encontrado."));
         String unidade = jdbc.queryForObject("SELECT unit FROM indicators WHERE id = ?", String.class, id);
         List<Map<String, Object>> registros = jdbc.query("""
-            SELECT r.period, r.value, r.created_at, u.name
+            SELECT r.id, r.period, r.value, r.created_at, u.name
             FROM indicator_records r JOIN users u ON u.id = r.entered_by
             WHERE r.indicator_id = ?
             ORDER BY r.period, r.created_at, r.id
             """, (rs, n) -> {
                 Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", rs.getInt("id"));
                 m.put("periodo", rs.getDate("period").toLocalDate().toString());
                 m.put("valor", rs.getBigDecimal("value"));
                 m.put("valorTexto", valorComUnidade(rs.getBigDecimal("value"), unidade));

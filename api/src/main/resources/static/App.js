@@ -54,7 +54,7 @@ const $ = id => document.getElementById(id);
 const hojeBR = () => new Date().toLocaleDateString("pt-BR");
 
 // ================= Perfis =================
-const PERFIS = { admin: "Administrador", responsavel: "Responsável por dados", auditor: "Auditor" };
+const PERFIS = { admin: "Administrador", responsavel: "Responsável", auditor: "Auditor" };
 // mirrors Auth.exigir(...) on the server, only to hide what can't be used; the server is the real check
 const PERMISSOES = {
   indicadores: ["admin", "responsavel"],
@@ -312,7 +312,7 @@ function renderEvidencias() {
   $("lista-docs").innerHTML = l.length ? l.map(d => `
     <div class="linha">
       <span class="ic-caixa">${ic(/\.(jpg|jpeg|png|gif|webp)$/i.test(d.nome) ? "image" : "report")}</span>
-      <div class="corpo"><strong>${esc(d.nome)}</strong><small>${esc(d.ind)}${d.descricao ? " · " + esc(d.descricao) : ""}</small>${linhaRevisao(d)}</div>
+      <div class="corpo"><strong>${esc(d.nome)}</strong><small>${esc(d.ind)}${d.descricao ? " · " + esc(d.descricao) : ""}</small>${d.comprova ? `<small>Comprova: ${esc(d.comprova)}</small>` : ""}${linhaRevisao(d)}</div>
       <span class="meta esconde">${esc(d.quem)}</span><span class="meta esconde">${d.data}</span>
       <span class="pill ${corStatus(d.status)}">${d.status}</span>
       ${podeRevisar(d) ? `<button class="btn-secundario btn-mini btn-aprovar" data-aprovar="${d.id}">Aprovar</button>
@@ -410,10 +410,10 @@ function renderEquipe() {
       : p.ativo === false ? `<button class="btn-secundario btn-mini" data-reativar="${p.id}">Reativar</button>`
       : p.id === eu ? "" : `<button class="btn-secundario btn-mini btn-mini-perigo" data-desativar="${p.id}">Desativar</button>`;
     const abre = detalhes && p.id != null;
-    const topo = `<span class="avatar grande" style="${corAvatar(p)}">${esc(p.sigla)}</span><div><strong>${esc(p.nome)}</strong><span>${esc(p.cargo)}</span></div>`;
+    const topo = `<span class="avatar grande" style="${corAvatar(p)}">${esc(p.sigla)}</span><div><strong>${esc(p.nome)}</strong><span title="Cargo">${esc(p.cargo || "Cargo não informado")}</span></div>`;
     return `<div class="card pessoa ${p.ativo === false ? "inativo" : ""} ${abre ? "clicavel" : ""}" ${abre ? `data-pessoa="${p.id}"` : ""}>${acao ? `<div class="pessoa-acao">${acao}</div>` : ""}${p.ativo === false ? `<span class="pill mute pill-inativo">Inativo${p.desativadoEm ? " desde " + p.desativadoEm.split("-").reverse().join("/") : ""}</span>` : ""}
       ${abre ? `<button type="button" class="pessoa-topo pessoa-abrir" aria-label="Ver informações de ${esc(p.nome)}">${topo}</button>` : `<div class="pessoa-topo">${topo}</div>`}
-      <div class="pessoa-base"><span class="pill info">${p.cat}</span>${p.role ? `<span class="pill ${p.role === "admin" ? "ok" : p.role === "auditor" ? "warn" : "mute"}">${PERFIS[p.role]}</span>` : ""}<span>${n} ${n === 1 ? "indicador" : "indicadores"}</span></div></div>`;
+      <div class="pessoa-base">${p.cat ? `<span class="pill info">${esc(p.cat)}</span>` : ""}${p.role ? `<span class="pill ${p.role === "admin" ? "ok" : p.role === "auditor" ? "warn" : "mute"}" title="Perfil de acesso: permissão no sistema">${PERFIS[p.role]}</span>` : ""}<span>${n} ${n === 1 ? "indicador" : "indicadores"}</span></div></div>`;
   }).join("") : vazio(filtroEquipe === "inativos" ? "Nenhum membro inativo." : "Nenhum membro ativo.");
 }
 
@@ -1082,7 +1082,7 @@ function renderPessoa(d) {
   $("pessoa-corpo").innerHTML = `
     <div class="pessoa-det-info">
       ${d.email ? `<a class="link-pequeno" href="mailto:${esc(d.email)}">${ic("mail")} ${esc(d.email)}</a>` : ""}
-      <span class="pill ${d.role === "admin" ? "ok" : d.role === "auditor" ? "warn" : "mute"}">${PERFIS[d.role] || "—"}</span>
+      <span class="pill ${d.role === "admin" ? "ok" : d.role === "auditor" ? "warn" : "mute"}" title="Perfil de acesso: permissão no sistema">${PERFIS[d.role] || "—"}</span>
       ${d.cat ? `<span class="pill info">${esc(d.cat)}</span>` : ""}
       <span class="pill ${d.ativo ? "ok" : "mute"}">${d.ativo ? "Ativo" : `Inativo${d.desativadoEm ? " desde " + esc(d.desativadoEm) : ""}`}</span>
     </div>
@@ -1151,7 +1151,7 @@ const erroResposta = async (resp, padrao) => (resp ? (await resp.json().catch(()
 
 // evidências: selecionar e arrastar
 // same rules as EvidenceController; the server checks again
-const EV_MAX_MB = 10;
+const EV_MAX_MB = 5;
 const EV_EXTENSOES = ["pdf", "xlsx", "xls", "csv", "docx", "png", "jpg", "jpeg"];
 const extensao = nome => (nome.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || "";
 
@@ -1192,9 +1192,25 @@ function abrirNovaEvidencia(arquivos = []) {
     $("ev-arquivos").files = dt.files;
   }
   listarSelecionados();
+  carregarRegistrosEv();
   $("ev-form-erro").style.display = "none";
   $("modal-ev").showModal();
 }
+
+// lets the person pick which record the evidence proves; if the list can't load, the automatic rule applies
+let evRegistrosVez = 0; // ignores a slow answer when another indicator was picked meanwhile
+async function carregarRegistrosEv() {
+  const id = $("ev-indicador").value, vez = ++evRegistrosVez;
+  $("ev-registro").innerHTML = `<option value="">Mais recente (automático)</option>`;
+  $("ev-registro-campo").hidden = !id;
+  if (!id) return;
+  const resp = await fetch(`${API}/indicators/${id}/records`).catch(() => null);
+  if (vez !== evRegistrosVez || !resp || !resp.ok) return;
+  const h = await resp.json();
+  $("ev-registro").innerHTML += [...h.registros].reverse().map(r =>
+    `<option value="${r.id}">${esc(r.valorTexto)} em ${esc(r.periodo.split("-").reverse().join("/"))}</option>`).join("");
+}
+$("ev-indicador").addEventListener("change", carregarRegistrosEv);
 
 async function enviarEvidencias() {
   const arquivos = [...$("ev-arquivos").files];
@@ -1203,7 +1219,7 @@ async function enviarEvidencias() {
   const invalidos = errosArquivos(arquivos);
   if (invalidos.length) return erroForm(invalidos);
 
-  const indicatorId = $("ev-indicador").value, descricao = $("ev-descricao").value.trim();
+  const indicatorId = $("ev-indicador").value, descricao = $("ev-descricao").value.trim(), recordId = $("ev-registro").value;
   $("modal-ev").close(); // a modal dialog sits above everything, including the loader
   mostrarErroEvidencia([]);
   mostrarCarregando(arquivos.length > 1 ? `Enviando ${arquivos.length} evidências…` : "Enviando evidência…");
@@ -1213,6 +1229,7 @@ async function enviarEvidencias() {
       const form = new FormData();
       form.append('nome', f.name);
       if (indicatorId) form.append('indicatorId', indicatorId);
+      if (indicatorId && recordId) form.append('recordId', recordId);
       if (descricao) form.append('descricao', descricao);
       form.append('arquivo', f);
       const resp = await fetch(`${API}/evidence`, { method: 'POST', body: form }).catch(() => null);
@@ -1521,6 +1538,14 @@ async function abrirRelatorio(id, alvoErro = $("rel-erro")) {
   aba.document.close();
   aba.document.getElementById("imprimir").addEventListener("click", () => aba.print());
 }
+// indicators the report used, read from report_items; empty on reports generated before that table
+function secaoItens(r) {
+  if (!r.itens?.length) return "";
+  return `<section style="margin-top:20px"><h2>Indicadores usados (${r.itens.length})</h2>
+    <table><thead><tr><th>Indicador</th><th class="num">Valor</th><th>Referência</th><th class="num">Evidências aprovadas</th></tr></thead><tbody>
+    ${r.itens.map(i => `<tr><td>${esc(i.nome)}</td><td class="num">${esc(i.valor)}</td><td>${esc(i.referencia || "—")}</td><td class="num">${esc(i.evidenciasAprovadas)}</td></tr>`).join("")}
+    </tbody></table></section>`;
+}
 function paginaRelatorio(r) {
   const classeEv = s => s === "Aprovada" ? "ok" : s === "Rejeitada" ? "rej" : "ana";
   const classeStatus = s => s === "Atualizado" ? "ok" : s === "Desatualizado" ? "atr" : "ana";
@@ -1616,7 +1641,8 @@ function paginaRelatorio(r) {
   <div class="info">
     ${esc(r.modeloNome)} · <b>${esc(r.periodo.texto)}</b><br>
     ${r.modelo === "intervalo" ? "" : `${esc(r.periodo.inicio)} a ${esc(r.periodo.fim)}<br>`}
-    Gerado em ${esc(r.geradoEm)} por ${esc(r.geradoPor)}
+    Gerado em ${esc(r.geradoEm)}<br>
+    Gerado por ${esc(r.criadoPor || r.geradoPor)}
   </div>
 </header>
 <div class="resumo">
@@ -1632,6 +1658,7 @@ function paginaRelatorio(r) {
   </div></div>
 </div>
 ${secoes || `<p class="sub-inline">Nenhum indicador ativo.</p>`}
+${secaoItens(r)}
 <footer>Cada valor é o último registro com data de referência dentro do período. Status, meta e evidências refletem o momento em que o relatório foi gerado. Gerado pelo Evidra.</footer>
 </body></html>`;
 }
@@ -1662,7 +1689,7 @@ function paginaAuditoria(r) {
     <div class="org">${esc(r.organizacao.nome)}${r.organizacao.setor ? " · " + esc(r.organizacao.setor) : ""}</div>
     <h1>${esc(r.nome)} <span class="status ${r.status === "Publicado" ? "publicado" : ""}">${esc(r.status)}</span></h1>
     <div class="meta">Pacote de auditoria · Período: ${esc(r.periodo.texto)} (${esc(r.periodo.inicio)} a ${esc(r.periodo.fim)})<br>
-      Gerado em ${esc(r.geradoEm)} por ${esc(r.geradoPor)}</div>`;
+      Gerado em ${esc(r.geradoEm)}<br>Gerado por ${esc(r.criadoPor || r.geradoPor)}</div>`;
   const s = r.resumo, l = s.lacunas;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(r.nome)}</title>
 <style>
@@ -1704,6 +1731,7 @@ function paginaAuditoria(r) {
 </div>
 ${r.categorias.map(c => `<section class="pilar"><h2>${esc(c.nome)} <span class="sub">· ${c.indicadores.length} ${c.indicadores.length === 1 ? "indicador" : "indicadores"}</span></h2>${c.indicadores.map(indicador).join("")}</section>`).join("")
   || `<p>Nenhum indicador ativo.</p>`}
+${secaoItens(r)}
 <footer>Conteúdo congelado no momento da geração. O código SHA-256 (12 primeiros caracteres) identifica o conteúdo exato de cada arquivo armazenado: um arquivo entregue depois deve gerar o mesmo código. Gerado pelo Evidra.</footer>
 </body></html>`;
 }
@@ -1743,7 +1771,7 @@ const DICAS_PERFIL = {
   auditor: "Consulta tudo e revisa evidências. Não altera indicadores nem envia evidências.",
   admin: "Acesso completo, incluindo equipe e configurações."
 };
-const atualizarDicaPerfil = () => { $("convite-dica").textContent = DICAS_PERFIL[$("convite-role").value]; };
+const atualizarDicaPerfil = () => { $("convite-dica").textContent = "É a permissão no sistema, não o cargo. " + DICAS_PERFIL[$("convite-role").value]; };
 $("btn-convidar").addEventListener("click", () => {
   $("convite-form").reset();
   atualizarDicaPerfil();
@@ -1759,10 +1787,12 @@ $("convite-form").addEventListener("submit", e => {
     const nome = $("convite-nome").value.trim(), email = $("convite-email").value.trim();
     if (!nome) return erro("Informe o nome.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return erro("Informe um e-mail válido.");
+    const foco = $("convite-foco").value, cargo = $("convite-cargo").value.trim();
+    if (!foco) return erro("Escolha a área de foco.");
     const resp = await fetch(`${API}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, email, role: $("convite-role").value })
+      body: JSON.stringify({ nome, email, cargo, foco, role: $("convite-role").value })
     }).catch(() => null);
     if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível convidar."));
     $("modal-convite").close();
@@ -1788,17 +1818,19 @@ aoClicar("cfg-salvar", async () => {
 function marcarChip(seletor, ativo) {
   document.querySelectorAll(seletor).forEach(x => { x.classList.toggle("ativo", x === ativo); x.setAttribute("aria-pressed", String(x === ativo)); });
 }
-// browser storage may be blocked (private mode); everything here works without it
-const lerJSON = (k, padrao) => { try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; } };
-const gravarJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* not remembered, still works */ } };
 
 // ================= Notificações =================
-// built from what carregar() already loaded (tasks, evidence, activity);
-// which ones were read is remembered per user, in this browser
-const chaveLidas = () => `evidra:notif-lidas:${usuarioAtual().id ?? ""}`;
-const PREFS_NOTIF = { prazos: "notif-prazos", evidencias: "notif-evidencias", atividade: "notif-atividade" };
-const prefsNotif = () => ({ prazos: true, evidencias: true, atividade: true, ...lerJSON("evidra:notif-prefs", {}) });
+// everything comes from GET /notifications; read state and preferences live on the server
+const VISUAL_NOTIF = {
+  indicador_desatualizado: { icone: "warn", tom: "amarelo", view: "indicadores" },
+  evidencia_aprovada: { icone: "ok", tom: "verde", view: "evidencias" },
+  evidencia_rejeitada: { icone: "warn", tom: "amarelo", view: "evidencias" },
+  evidencia_em_analise: { icone: "file", tom: "", view: "evidencias" },
+  relatorio_gerado: { icone: "file", tom: "verde", view: "relatorios" }
+};
 let filtroNotif = "todas", notificacoes = [];
+// the indicator an "outdated" notification can update right away, if the user is allowed to
+const indParaAtualizar = n => n.tipo === "indicador_desatualizado" && pode("indicadores") ? indicadores.find(i => i.id === n.indicadorId) : null;
 
 // days from today until a dd/mm/yyyy date (negative = already past), or null
 const diasAte = br => {
@@ -1806,46 +1838,7 @@ const diasAte = br => {
   return iso ? Math.round((Date.parse(iso + "T12:00:00") - Date.parse(hojeISO() + "T12:00:00")) / 864e5) : null;
 };
 
-function montarNotificacoes() {
-  const u = usuarioAtual(), eu = u.id, pref = prefsNotif(), l = [];
-  if (pref.prazos) {
-    // outdated indicators: the owner's business; admins see all of them
-    tarefas.filter(t => String(t.id).startsWith("sys-ind-") && (t.responsavelId === eu || u.role === "admin")).forEach(t => {
-      const ind = indicadores.find(i => i.id === t.indicadorId);
-      if (!ind) return;
-      l.push({ id: `ind-${ind.id}-${t.Prazo}`, icone: "warn", tom: "amarelo", ordem: 2,
-        titulo: `Indicador desatualizado: ${ind.nome}`,
-        det: `${t.Prazo === "—" ? "Nenhum valor registrado ainda" : `Atualização prevista para ${t.Prazo}`}${t.responsavelId === eu ? "" : ` · ${t.quem}`}`,
-        view: "indicadores", abrir: pode("indicadores") ? () => abrirAtualizar(ind) : null });
-    });
-  }
-  if (pref.evidencias) {
-    // what happened to the evidence I sent
-    docs.filter(d => d.enviadoPorId === eu && d.revisor && d.status !== "Em análise").forEach(d => {
-      const rej = d.status === "Rejeitada";
-      l.push({ id: `rev-${d.id}-${d.status}`, icone: rej ? "warn" : "ok", tom: rej ? "amarelo" : "verde", ordem: rej ? 1 : 4,
-        titulo: `${d.nome} foi ${rej ? "rejeitada" : "aprovada"} por ${d.revisor}`,
-        det: rej && d.nota ? `Motivo: ${d.nota}` : `Em ${d.revisadoEm || "—"} · ${d.ind}`, view: "evidencias" });
-    });
-    // what waits for my review (nobody reviews their own upload)
-    if (pode("revisar")) docs.filter(d => d.status === "Em análise" && d.enviadoPorId !== eu).forEach(d => {
-      l.push({ id: `ev-${d.id}`, icone: "file", tom: "", ordem: 2,
-        titulo: `Evidência aguardando revisão: ${d.nome}`, det: `Enviada por ${d.quem} em ${d.data} · ${d.ind}`, view: "evidencias" });
-    });
-  }
-  if (pref.atividade) {
-    atividades.filter(a => a.usuarioId != null && a.usuarioId !== eu).slice(0, 8).forEach(a => {
-      l.push({ id: `at-${a.quando}-${a.usuarioId}-${a.acao}-${a.detalhe}`, icone: a.icone, tom: "verde", ordem: 5,
-        titulo: `${a.nome} ${a.acao}`, det: a.det, view: "historico" });
-    });
-  }
-  const lidas = new Set(lerJSON(chaveLidas(), []));
-  l.forEach(n => { n.lida = lidas.has(n.id); });
-  return l.sort((a, b) => a.ordem - b.ordem);
-}
-
 function renderNotificacoes() {
-  notificacoes = montarNotificacoes();
   const naoLidas = notificacoes.filter(n => !n.lida).length;
   // bell: number of unread ones
   $("sino-contador").textContent = naoLidas ? (naoLidas > 9 ? "9+" : naoLidas) : "";
@@ -1859,13 +1852,13 @@ function renderNotificacoes() {
   const l = notificacoes.filter(n => (filtroNotif === "todas" || !n.lida) && bate(n.titulo, n.det));
   $("lista-notif").innerHTML = l.length ? l.map(n => `
     <div class="linha notif ${n.lida ? "lida" : "nao-lida"}">
-      <span class="ic-caixa ${n.tom}">${ic(n.icone)}</span>
+      <span class="ic-caixa ${VISUAL_NOTIF[n.tipo].tom}">${ic(VISUAL_NOTIF[n.tipo].icone)}</span>
       <div class="corpo"><strong>${esc(n.titulo)}</strong><small>${esc(n.det)}</small></div>
       ${n.lida ? "" : `<span class="ponto-novo" title="Não lida"><span class="sr-only">Não lida</span></span>
-        <button class="btn-icone btn-notif-ler" data-notif-ler="${esc(n.id)}" aria-label="Marcar como lida: ${esc(n.titulo)}" title="Marcar como lida">${ic("check")}</button>`}
-      <button class="btn-secundario btn-mini" data-notif-ir="${esc(n.id)}">${n.abrir ? "Atualizar" : "Ver"}</button>
+        <button class="btn-icone btn-notif-ler" data-notif-ler="${n.id}" aria-label="Marcar como lida: ${esc(n.titulo)}" title="Marcar como lida">${ic("check")}</button>`}
+      <button class="btn-secundario btn-mini" data-notif-ir="${n.id}">${indParaAtualizar(n) ? "Atualizar" : "Ver"}</button>
     </div>`).join("")
-    : vazio(filtroNotif === "nao-lidas" && notificacoes.length ? "Nenhuma notificação não lida." : "Você não tem notificações. Avisos de prazos, revisões e atividade da equipe aparecem aqui.");
+    : vazio(filtroNotif === "nao-lidas" && notificacoes.length ? "Nenhuma notificação não lida." : "Você não tem notificações. Avisos de prazos, evidências e relatórios aparecem aqui.");
 }
 
 // opening the center fetches everything again, so new tasks, reviews and activity show up
@@ -1875,16 +1868,17 @@ function abrirNotificacoes() {
   return comCarregamento("notificacoes", $("lista-notif"), "Carregando notificações…", carregar, renderNotificacoes);
 }
 
-function marcarLidas(ids) {
-  // keep only ids that still exist, so the stored list doesn't grow forever
-  const atuais = new Set(notificacoes.map(n => n.id));
-  const lidas = new Set(lerJSON(chaveLidas(), []).filter(id => atuais.has(id)));
-  ids.forEach(id => lidas.add(id));
-  gravarJSON(chaveLidas(), [...lidas]);
+// updates the screen right away and undoes it if the server refuses
+async function marcarLidas(alvos, rota) {
+  alvos.forEach(n => { n.lida = true; });
+  renderNotificacoes();
+  const resp = await fetch(API + rota, { method: 'POST' }).catch(() => null);
+  if (resp && resp.ok) return;
+  alvos.forEach(n => { n.lida = false; });
   renderNotificacoes();
 }
 $("btn-sino").addEventListener("click", () => mostrarView("notificacoes"));
-$("btn-notif-lidas").addEventListener("click", () => marcarLidas(notificacoes.map(n => n.id)));
+$("btn-notif-lidas").addEventListener("click", () => marcarLidas(notificacoes.filter(n => !n.lida), "/notifications/read-all"));
 document.querySelectorAll("[data-notif]").forEach(c => c.addEventListener("click", () => {
   filtroNotif = c.dataset.notif;
   marcarChip("[data-notif]", c);
@@ -1892,18 +1886,24 @@ document.querySelectorAll("[data-notif]").forEach(c => c.addEventListener("click
 }));
 $("lista-notif").addEventListener("click", e => {
   const ler = e.target.closest("[data-notif-ler]"), ir = e.target.closest("[data-notif-ir]");
-  const n = notificacoes.find(x => x.id === (ler?.dataset.notifLer ?? ir?.dataset.notifIr));
+  const n = notificacoes.find(x => String(x.id) === (ler?.dataset.notifLer ?? ir?.dataset.notifIr));
   if (!n) return;
-  marcarLidas([n.id]);
-  if (ir) { mostrarView(n.view); if (n.abrir) n.abrir(); }
+  if (!n.lida) marcarLidas([n], `/notifications/${n.id}/read`);
+  if (ir) {
+    const ind = indParaAtualizar(n);
+    mostrarView(VISUAL_NOTIF[n.tipo].view);
+    if (ind) abrirAtualizar(ind);
+  }
 });
-Object.entries(PREFS_NOTIF).forEach(([chave, id]) => {
-  $(id).checked = prefsNotif()[chave];
-  $(id).addEventListener("change", () => {
-    gravarJSON("evidra:notif-prefs", { ...prefsNotif(), [chave]: $(id).checked });
-    renderNotificacoes();
-  });
-});
+// Configurações: one switch per type, saved on the server; the switch goes back if that fails
+document.querySelectorAll("[data-notif-tipo]").forEach(c => c.addEventListener("change", async () => {
+  const resp = await fetch(`${API}/notifications/preferences`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo: c.dataset.notifTipo, ativo: c.checked })
+  }).catch(() => null);
+  if (!resp || !resp.ok) c.checked = !c.checked;
+}));
 
 // ================= Meu perfil =================
 const FOCOS = { ambiental: "Ambiental", social: "Social", governanca: "Governança" };
@@ -2204,10 +2204,14 @@ async function carregar() {
   if (entrando) mostrarCarregando("Carregando seus indicadores…");
   try {
     const get = rota => fetch(API + rota).then(r => r.json());
-    const [ind, ev, ta, re, pe, at, org, me] = await Promise.all([
+    const [ind, ev, ta, re, pe, at, org, me, no, pn] = await Promise.all([
       get('/indicators'), get('/evidence'), get('/tasks'),
       get('/reports'), get('/users?inativos=true'), get('/activity'), get('/organization'), get('/auth/me'),
+      get('/notifications'), get('/notifications/preferences'),
     ]);
+    // a failure in the bell must not stop the rest of the app
+    notificacoes = Array.isArray(no) ? no : [];
+    document.querySelectorAll("[data-notif-tipo]").forEach(c => { c.checked = pn[c.dataset.notifTipo] !== false; });
     if (me && me.role) localStorage.setItem('usuario', JSON.stringify({ ...usuarioAtual(), ...me }));
     indicadores = ind; docs = ev; tarefas = ta; relatorios = re; pessoas = pe; atividades = at;
     metaESG = org.meta;

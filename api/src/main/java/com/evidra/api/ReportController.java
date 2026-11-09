@@ -1,5 +1,7 @@
 package com.evidra.api;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -15,6 +17,9 @@ import org.springframework.boot.json.JsonWriter;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,9 +46,11 @@ public class ReportController {
     static final List<String> TIPOS_PERIODO = List.of("mensal", "semestral", "anual", "intervalo");
 
     private final JdbcTemplate jdbc;
+    private final NotificationService notificacoes;
 
-    public ReportController(JdbcTemplate jdbc) {
+    public ReportController(JdbcTemplate jdbc, NotificationService notificacoes) {
         this.jdbc = jdbc;
+        this.notificacoes = notificacoes;
     }
 
     private static String str(Object o) {
@@ -129,6 +136,7 @@ public class ReportController {
     // {"nome": "...", "modelo": "mensal", "inicio": "2026-09-01", "fim": "2026-09-30"}
     // the audit package also says which kind of period it covers: {"modelo": "auditoria", "periodo": "semestral", ...}
     @PostMapping
+    @Transactional // the report and its report_items are saved together or not at all
     public ResponseEntity<?> criar(@RequestBody Map<String, Object> body) {
         Auth.exigir(Auth.RESPONSAVEL, Auth.AUDITOR);
         int org = Auth.orgId();
@@ -162,11 +170,39 @@ public class ReportController {
         Map<String, Object> s = modelo.equals("auditoria")
             ? pacoteAuditoria(org, nome, inicio, fim) : snapshot(org, nome, modelo, inicio, fim);
         String conteudo = JsonWriter.standard().writeToString(s);
+        String nomeSalvo = nome;
+        KeyHolder kh = new GeneratedKeyHolder();
+        jdbc.update(con -> {
+            PreparedStatement ps = con.prepareStatement("""
+                INSERT INTO reports (organization_id, name, template, period_start, period_end, content, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, Statement.RETURN_GENERATED_KEYS);
+            ps.setInt(1, org);
+            ps.setString(2, nomeSalvo);
+            ps.setString(3, modelo);
+            ps.setObject(4, inicio);
+            ps.setObject(5, fim);
+            ps.setString(6, conteudo);
+            ps.setInt(7, Auth.userId());
+            return ps;
+        }, kh);
+        int relatorioId = kh.getKey().intValue();
+        // one row per active indicator: its last record in the period or, without one, its most recent record
         jdbc.update("""
-            INSERT INTO reports (organization_id, name, template, period_start, period_end, content)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """, org, nome, modelo, inicio, fim, conteudo);
+            INSERT INTO report_items (report_id, indicator_id, record_id, value_snapshot, evidence_count)
+            SELECT ?, i.id, reg.id, reg.value,
+                   (SELECT COUNT(*) FROM evidence e WHERE e.indicator_id = i.id AND e.organization_id = i.organization_id AND e.status = 'aprovada')
+            FROM indicators i
+            LEFT JOIN (
+                SELECT id, indicator_id, value,
+                       ROW_NUMBER() OVER (PARTITION BY indicator_id
+                           ORDER BY CASE WHEN period BETWEEN ? AND ? THEN 0 ELSE 1 END, period DESC, created_at DESC, id DESC) AS rn
+                FROM indicator_records) reg ON reg.indicator_id = i.id AND reg.rn = 1
+            WHERE i.organization_id = ? AND i.archived = FALSE
+            """, relatorioId, inicio, fim, org);
         registrar("criou um relatório", nome);
+        notificacoes.notificar(NotificationService.RELATORIO_GERADO, "Relatório gerado: " + nome,
+            null, null, relatorioId, Auth.userId());
         return ResponseEntity.status(201).body(Map.of("ok", true));
     }
 
@@ -398,14 +434,38 @@ public class ReportController {
 
     @GetMapping("/{id}")
     public ResponseEntity<String> snapshot(@PathVariable int id) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-            "SELECT content, status FROM reports WHERE id = ? AND organization_id = ?", id, Auth.orgId());
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+            SELECT r.content, r.status, u.name AS criador
+            FROM reports r LEFT JOIN users u ON u.id = r.created_by
+            WHERE r.id = ? AND r.organization_id = ?
+            """, id, Auth.orgId());
         if (rows.isEmpty()) throw new ApiErro(404, "Relatório não encontrado.");
         String conteudo = (String) rows.get(0).get("content");
         if (conteudo == null) throw new ApiErro(404, "Este relatório foi criado antes dos relatórios com dados e não tem conteúdo.");
         // the stored snapshot plus the current status (publishing happens after generation)
         String status = "publicado".equals(rows.get(0).get("status")) ? "Publicado" : "Rascunho";
-        String json = conteudo.substring(0, conteudo.lastIndexOf('}')) + ",\"status\":\"" + status + "\"}";
+        List<Map<String, Object>> itens = jdbc.query("""
+            SELECT i.name, i.unit, it.value_snapshot, it.evidence_count, reg.period
+            FROM report_items it
+            JOIN indicators i ON i.id = it.indicator_id
+            LEFT JOIN indicator_records reg ON reg.id = it.record_id
+            WHERE it.report_id = ?
+            ORDER BY i.name, it.id
+            """, (rs, n) -> {
+                java.math.BigDecimal valor = rs.getBigDecimal("value_snapshot");
+                java.sql.Date periodo = rs.getDate("period");
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("nome", rs.getString("name"));
+                m.put("valor", valor == null ? "Sem registro" : IndicatorController.valorComUnidade(valor, rs.getString("unit")));
+                m.put("referencia", periodo == null ? null : periodo.toLocalDate().format(BR));
+                m.put("evidenciasAprovadas", rs.getInt("evidence_count"));
+                return m;
+            }, id);
+        Map<String, Object> extras = new LinkedHashMap<>();
+        extras.put("status", status);
+        extras.put("criadoPor", rows.get(0).get("criador")); // null: generated before created_by existed
+        extras.put("itens", itens);
+        String json = conteudo.substring(0, conteudo.lastIndexOf('}')) + "," + JsonWriter.standard().writeToString(extras).substring(1);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     }
 

@@ -134,6 +134,7 @@ public class WriteController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid data"));
         jdbc.update("UPDATE organizations SET name = ?, sector = ?, esg_target = ? WHERE id = ?",
             nome, setor.isEmpty() ? null : setor, meta, Auth.orgId());
+        logActivity("alterou as configurações da organização", nome);
         return ResponseEntity.ok(Map.of("ok", true));
     }
 }

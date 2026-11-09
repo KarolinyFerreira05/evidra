@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.sql.Types;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +16,8 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,8 +33,8 @@ import jakarta.servlet.http.HttpServletResponse;
 public class EvidenceController {
 
     // must match spring.servlet.multipart.max-file-size and the text in index.html / App.js
-    static final long MAX_BYTES = 10L * 1024 * 1024;
-    static final String MSG_GRANDE = "O arquivo passa do limite de 10 MB.";
+    static final long MAX_BYTES = 5L * 1024 * 1024;
+    static final String MSG_GRANDE = "O arquivo passa do limite de 5 MB.";
 
     // allowed extension -> Content-Type sent back on download (never trust the browser's type)
     private static final Map<String, String> TIPOS = Map.of(
@@ -45,9 +50,11 @@ public class EvidenceController {
     private static final java.util.Set<String> INLINE = java.util.Set.of("application/pdf", "image/png", "image/jpeg");
 
     private final JdbcTemplate jdbc;
+    private final NotificationService notificacoes;
 
-    public EvidenceController(JdbcTemplate jdbc) {
+    public EvidenceController(JdbcTemplate jdbc, NotificationService notificacoes) {
         this.jdbc = jdbc;
+        this.notificacoes = notificacoes;
     }
 
     private static ResponseEntity<Map<String, String>> erro(int status, String msg) {
@@ -88,10 +95,18 @@ public class EvidenceController {
             String.class, indicatorId, Auth.orgId()).stream().findFirst().orElse(null);
     }
 
+    // latest record of the indicator by reference date, or null when it has none
+    private Integer registroMaisRecente(int indicatorId) {
+        return jdbc.queryForList(
+            "SELECT id FROM indicator_records WHERE indicator_id = ? ORDER BY period DESC, created_at DESC, id DESC LIMIT 1",
+            Integer.class, indicatorId).stream().findFirst().orElse(null);
+    }
+
     @PostMapping("/evidence")
     public ResponseEntity<?> upload(@RequestParam("arquivo") MultipartFile arquivo,
                                     @RequestParam(value = "nome", required = false) String nome,
                                     @RequestParam(value = "indicatorId", required = false) Integer indicatorId,
+                                    @RequestParam(value = "recordId", required = false) Integer recordId,
                                     @RequestParam(value = "descricao", required = false) String descricao)
             throws IOException {
         Auth.exigir(Auth.RESPONSAVEL);
@@ -102,7 +117,11 @@ public class EvidenceController {
         if (indicatorId != null) {
             indicador = nomeIndicador(indicatorId);
             if (indicador == null) return erro(400, "Indicador não encontrado.");
+            if (recordId != null && jdbc.queryForObject("SELECT COUNT(*) FROM indicator_records WHERE id = ? AND indicator_id = ?",
+                    Integer.class, recordId, indicatorId) == 0)
+                return erro(400, "O registro escolhido não pertence a este indicador.");
         }
+        Integer registro = indicatorId == null ? null : recordId != null ? recordId : registroMaisRecente(indicatorId);
         descricao = descricao == null ? null : descricao.strip().replaceAll("\\p{Cntrl}", " ");
         if (descricao != null && descricao.isEmpty()) descricao = null;
         if (descricao != null && descricao.length() > 255)
@@ -119,11 +138,25 @@ public class EvidenceController {
         if (nomeFinal.equals("." + ext)) nomeFinal = "arquivo." + ext;
 
         byte[] conteudo = arquivo.getBytes();
+        String nomeSalvo = nomeFinal, descricaoSalva = descricao;
+        KeyHolder kh = new GeneratedKeyHolder();
         try {
-            jdbc.update("""
-                INSERT INTO evidence (organization_id, indicator_id, file_name, description, file_content, file_type, file_size, uploaded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, Auth.orgId(), indicatorId, nomeFinal, descricao, conteudo, tipo, conteudo.length, Auth.userId());
+            jdbc.update(con -> {
+                PreparedStatement ps = con.prepareStatement("""
+                    INSERT INTO evidence (organization_id, indicator_id, file_name, description, file_content, file_type, file_size, uploaded_by, record_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, Statement.RETURN_GENERATED_KEYS);
+                ps.setInt(1, Auth.orgId());
+                ps.setObject(2, indicatorId, Types.INTEGER);
+                ps.setString(3, nomeSalvo);
+                ps.setString(4, descricaoSalva);
+                ps.setBytes(5, conteudo);
+                ps.setString(6, tipo);
+                ps.setInt(7, conteudo.length);
+                ps.setInt(8, Auth.userId());
+                ps.setObject(9, registro, Types.INTEGER);
+                return ps;
+            }, kh);
         } catch (DataAccessException e) {
             // max_allowed_packet or the InnoDB redo-log BLOB limit on the server
             String causa = String.valueOf(e.getMostSpecificCause().getMessage());
@@ -132,6 +165,9 @@ public class EvidenceController {
             throw e;
         }
         registrar("adicionou uma evidência", indicador == null ? nomeFinal : nomeFinal + " → " + indicador);
+        notificacoes.notificar(NotificationService.EVIDENCIA_EM_ANALISE,
+            "Evidência enviada para análise: " + (indicador == null ? nomeFinal : nomeFinal + " → " + indicador),
+            indicatorId, kh.getKey().intValue(), null, Auth.userId(), notificacoes.responsavel(indicatorId));
         return ResponseEntity.status(201).body(Map.of("ok", true));
     }
 
@@ -147,7 +183,7 @@ public class EvidenceController {
         if (nota.length() > 255) throw new ApiErro(400, "O motivo pode ter no máximo 255 caracteres.");
 
         List<Map<String, Object>> rows = jdbc.queryForList(
-            "SELECT file_name, status, uploaded_by FROM evidence WHERE id = ? AND organization_id = ?", id, Auth.orgId());
+            "SELECT file_name, status, uploaded_by, indicator_id FROM evidence WHERE id = ? AND organization_id = ?", id, Auth.orgId());
         if (rows.isEmpty()) throw new ApiErro(404, "Evidência não encontrada.");
         Map<String, Object> ev = rows.get(0);
         if (((Number) ev.get("uploaded_by")).intValue() == Auth.userId())
@@ -163,6 +199,11 @@ public class EvidenceController {
         String nome = (String) ev.get("file_name");
         registrar(decisao.equals("aprovada") ? "aprovou uma evidência" : "rejeitou uma evidência",
             nota.isEmpty() ? nome : nome + ": " + nota);
+        Integer indicador = ev.get("indicator_id") == null ? null : ((Number) ev.get("indicator_id")).intValue();
+        boolean aprovada = decisao.equals("aprovada");
+        notificacoes.notificar(aprovada ? NotificationService.EVIDENCIA_APROVADA : NotificationService.EVIDENCIA_REJEITADA,
+            aprovada ? "Evidência aprovada: " + nome : "Evidência rejeitada: " + nome + ". Motivo: " + nota,
+            indicador, id, null, ((Number) ev.get("uploaded_by")).intValue(), notificacoes.responsavel(indicador));
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
@@ -188,8 +229,9 @@ public class EvidenceController {
             "SELECT file_name FROM evidence WHERE id = ? AND organization_id = ?", String.class, id, Auth.orgId());
         if (nomes.isEmpty()) return erro(404, "Evidência não encontrada.");
 
-        jdbc.update("UPDATE evidence SET indicator_id = ? WHERE id = ? AND organization_id = ?",
-            indicatorId, id, Auth.orgId());
+        // the record must always belong to the linked indicator
+        jdbc.update("UPDATE evidence SET indicator_id = ?, record_id = ? WHERE id = ? AND organization_id = ?",
+            indicatorId, indicatorId == null ? null : registroMaisRecente(indicatorId), id, Auth.orgId());
         if (indicador == null) registrar("desvinculou uma evidência", nomes.get(0));
         else registrar("vinculou uma evidência", nomes.get(0) + " → " + indicador);
         return ResponseEntity.ok(Map.of("ok", true));
