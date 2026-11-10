@@ -602,7 +602,7 @@ aoClicar("f-add", async () => {
   });
   if (!resp.ok) {
     $("f-erro").textContent = await erroResposta(resp, "Não foi possível salvar. Use um valor como 120 t ou 45%.");
-    $("f-erro").style.display = "block"; return;
+    $("f-erro").style.display = "block"; toastErro($("f-erro").textContent); return;
   }
   const { id } = await resp.json();
 
@@ -633,7 +633,7 @@ aoClicar("f-add", async () => {
       falhas,
       "Envie novamente em Evidências → Nova evidência, escolhendo este indicador.");
   } else {
-    mostrarSucesso(`Indicador "${nome}" criado com sucesso.`,
+    mostrarSucesso(`Indicador "${nome}" criado.`,
       enviados ? `${enviados} ${enviados === 1 ? "evidência anexada aguarda" : "evidências anexadas aguardam"} revisão.`
                : "Ele já aparece em Indicadores. Anexe evidências para comprová-lo.");
   }
@@ -679,7 +679,38 @@ function mostrarAviso(titulo, linhas = [], dica = "", tipo = "erro") {
   aviso.hidden = false;
   if (ok) saidaAviso = setTimeout(() => { aviso.hidden = true; }, 5000);
 }
-const mostrarSucesso = (titulo, dica = "") => mostrarAviso(titulo, [], dica, "ok");
+// ---- Toast: short message at the top right; closes itself after 4 s (hover pauses it)
+const TOAST_MS = 4000, TOAST_MAX = 4;
+function toast(msg, tipo = "ok", dica = "") {
+  const box = $("toasts"), erro = tipo === "erro";
+  const t = document.createElement("div");
+  t.className = "toast" + (erro ? " toast-erro" : "");
+  t.setAttribute("role", erro ? "alert" : "status");
+  t.innerHTML = `<span class="toast-ic" aria-hidden="true">${ic(erro ? "warn" : "ok")}</span>
+    <div class="toast-corpo"><strong></strong>${dica ? "<small></small>" : ""}</div>
+    <button type="button" class="btn-icone toast-fechar" aria-label="Fechar mensagem">×</button>`;
+  t.querySelector("strong").textContent = msg; // messages may carry names from the database: never innerHTML
+  if (dica) t.querySelector("small").textContent = dica;
+  let timer, fechado = false;
+  const fechar = () => {
+    if (fechado) return;
+    fechado = true; clearTimeout(timer);
+    t.classList.add("saindo");
+    setTimeout(() => { t.remove(); if (!box.children.length && box.hidePopover && box.matches(":popover-open")) box.hidePopover(); }, 200);
+  };
+  const agendar = () => { clearTimeout(timer); timer = setTimeout(fechar, TOAST_MS); };
+  t.querySelector(".toast-fechar").addEventListener("click", fechar);
+  t.addEventListener("mouseenter", () => clearTimeout(timer));
+  t.addEventListener("mouseleave", agendar);
+  box.appendChild(t);
+  while (box.children.length > TOAST_MAX) box.firstElementChild.remove();
+  // re-open the popover so it lands above any dialog opened after it
+  if (box.showPopover) { if (box.matches(":popover-open")) box.hidePopover(); box.showPopover(); }
+  agendar();
+}
+const toastErro = msg => toast(msg, "erro");
+// the existing success alert now shows as a toast
+const mostrarSucesso = (titulo, dica = "") => toast(titulo, "ok", dica);
 $("aviso-fechar").addEventListener("click", () => { clearTimeout(saidaAviso); $("aviso").hidden = true; });
 // hovering or focusing a success message keeps it open while it's being read
 $("aviso").addEventListener("mouseenter", () => clearTimeout(saidaAviso));
@@ -741,9 +772,10 @@ $("atu-form").addEventListener("submit", e => {
     } else {
       resp = await fetch(`${API}/indicators/${indAtualizando.id}/refresh`, { method: 'POST' }).catch(() => null);
     }
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível atualizar o indicador."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível atualizar o indicador."); toastErro(msg); return erro(msg); }
     $("modal-atualizar").close();
     await carregar();
+    toast(novo ? "Valor atualizado." : "Valor confirmado.");
   });
 });
 
@@ -783,9 +815,10 @@ $("ind-form").addEventListener("submit", e => {
     const resp = await fetch(`${API}/indicators/${indEditando.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados)
     }).catch(() => null);
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível salvar o indicador."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível salvar o indicador."); toastErro(msg); return erro(msg); }
     $("modal-ind").close();
     await carregar();
+    toast(`Indicador "${dados.nome}" editado.`);
   });
 });
 
@@ -798,7 +831,7 @@ async function arquivarIndicador(ind, btn) {
   if (!ok) return;
   await ocupar(btn, async () => {
     const resp = await fetch(`${API}/indicators/${ind.id}`, { method: 'DELETE' }).catch(() => null);
-    if (!resp || !resp.ok) { mostrarAviso("Não foi possível arquivar", [await erroResposta(resp, "Tente novamente.")]); return; }
+    if (!resp || !resp.ok) { toastErro(await erroResposta(resp, "Não foi possível arquivar o indicador.")); return; }
     await carregar();
     mostrarSucesso(`Indicador "${ind.nome}" arquivado.`, "Para restaurá-lo, use Indicadores → Ver arquivados.");
   });
@@ -892,6 +925,7 @@ $("import-form").addEventListener("submit", e => {
     if (!resp || !resp.ok) {
       if (dados.linhas) renderPrevia(dados);
       importValidado = false;
+      toastErro(dados.erro || "Não foi possível importar. Nada foi salvo.");
       return erroImport(dados.erro || "Não foi possível importar. Nada foi salvo.");
     }
     $("modal-import").close();
@@ -1047,11 +1081,13 @@ $("desativar-form").addEventListener("submit", e => {
       // something was assigned meanwhile: show the server's counts and ask again
       const d = await resp.json().catch(() => ({}));
       mostrarTransferencia(d.indicadores || 0);
+      toastErro(d.erro || "Escolha quem vai assumir.");
       return erro(d.erro || "Escolha quem vai assumir.");
     }
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível desativar."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível desativar."); toastErro(msg); return erro(msg); }
     $("modal-desativar").close();
     await carregar();
+    toast(`Membro "${membroDesativando.nome}" desativado.`);
   });
 });
 // ---- Detalhes de um membro (admin): click anywhere on the card except its action button
@@ -1137,9 +1173,10 @@ $("grade-equipe").addEventListener("click", e => {
   if (des) { abrirDesativar(p); return; }
   ocupar(rea, async () => {
     const resp = await mudarAtivo(p, true);
-    if (!resp || !resp.ok) { $("equipe-erro").textContent = await erroResposta(resp, "Não foi possível reativar."); $("equipe-erro").style.display = "block"; return; }
+    if (!resp || !resp.ok) { $("equipe-erro").textContent = await erroResposta(resp, "Não foi possível reativar."); $("equipe-erro").style.display = "block"; toastErro($("equipe-erro").textContent); return; }
     $("equipe-erro").style.display = "none";
     await carregar();
+    toast(`Membro "${p.nome}" reativado.`);
   });
 });
 
@@ -1240,6 +1277,9 @@ async function enviarEvidencias() {
     }
     mostrarErroEvidencia(erros);
     await carregar();
+    const enviadas = arquivos.length - erros.length;
+    if (enviadas) toast(enviadas === 1 ? "Evidência enviada." : `${enviadas} evidências enviadas.`);
+    if (erros.length) toastErro(erros.length === 1 ? erros[0] : `${erros.length} arquivos não foram enviados. Veja os detalhes em Evidências.`);
   } finally {
     esconderCarregando();
   }
@@ -1266,10 +1306,12 @@ async function salvarVinculo(btn, d) {
   if (!resp || !resp.ok) {
     const dados = resp ? await resp.json().catch(() => ({})) : {};
     mostrarErroEvidencia([`${d.nome}: ${dados.erro || "não foi possível vincular a evidência."}`]);
+    toastErro(dados.erro || "Não foi possível vincular a evidência.");
     return;
   }
   mostrarErroEvidencia([]);
   await carregar();
+  toast("Evidência vinculada.");
 }
 
 // a plain link can't send the Authorization header, so fetch with the token and open a blob URL
@@ -1387,6 +1429,7 @@ $("lista-docs").addEventListener("click", e => {
     const erro = await revisarEvidencia(d, "aprovada", "");
     mostrarErroEvidencia(erro ? [`${d.nome}: ${erro}`] : []);
     if (!erro) await carregar();
+    if (erro) toastErro(erro); else toast("Evidência aprovada.");
   });
 });
 $("rejeitar-cancelar").addEventListener("click", () => $("modal-rejeitar").close());
@@ -1397,10 +1440,11 @@ $("rejeitar-form").addEventListener("submit", e => {
     const mostrar = msg => { $("rejeitar-erro").textContent = msg; $("rejeitar-erro").style.display = "block"; };
     if (!nota) return mostrar("Informe o motivo da rejeição.");
     const erro = await revisarEvidencia(evRejeitando, "rejeitada", nota);
-    if (erro) return mostrar(erro);
+    if (erro) { toastErro(erro); return mostrar(erro); }
     $("modal-rejeitar").close();
     mostrarErroEvidencia([]);
     await carregar();
+    toast("Evidência rejeitada.");
   });
 });
 $("lista-docs").addEventListener("keydown", e => {
@@ -1513,9 +1557,10 @@ $("rel-form").addEventListener("submit", e => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, modelo: $("rel-modelo").value, periodo: tipoPeriodoRel(), inicio: p.inicio, fim: p.fim })
     }).catch(() => null);
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível gerar o relatório."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível gerar o relatório."); toastErro(msg); return erro(msg); }
     $("modal-rel").close();
     await carregar();
+    toast("Relatório gerado com sucesso.");
   });
 });
 
@@ -1747,7 +1792,7 @@ $("lista-rel").addEventListener("click", e => {
       botao: "Arquivar"
     }).then(ok => ok && ocupar(arq, async () => {
       const resp = await fetch(`${API}/reports/${r.id}/archive`, { method: 'POST' }).catch(() => null);
-      if (!resp || !resp.ok) { $("rel-erro").textContent = await erroResposta(resp, "Não foi possível arquivar."); $("rel-erro").style.display = "block"; return; }
+      if (!resp || !resp.ok) { $("rel-erro").textContent = await erroResposta(resp, "Não foi possível arquivar."); $("rel-erro").style.display = "block"; toastErro($("rel-erro").textContent); return; }
       $("rel-erro").style.display = "none";
       await carregar();
       mostrarSucesso(`Relatório "${r.nome}" arquivado.`, "Para restaurá-lo, use Relatórios → Ver arquivados.");
@@ -1759,9 +1804,10 @@ $("lista-rel").addEventListener("click", e => {
   confirmar({ titulo: "Publicar relatório?", texto: `"${r.nome}" passa a ser a versão oficial. Depois de publicado, ele não volta a rascunho.`, botao: "Publicar", perigo: false })
     .then(ok => ok && ocupar(pub, async () => {
       const resp = await fetch(`${API}/reports/${r.id}/publish`, { method: 'POST' }).catch(() => null);
-      if (!resp || !resp.ok) { $("rel-erro").textContent = await erroResposta(resp, "Não foi possível publicar."); $("rel-erro").style.display = "block"; return; }
+      if (!resp || !resp.ok) { $("rel-erro").textContent = await erroResposta(resp, "Não foi possível publicar."); $("rel-erro").style.display = "block"; toastErro($("rel-erro").textContent); return; }
       $("rel-erro").style.display = "none";
       await carregar();
+      toast(`Relatório "${r.nome}" publicado.`);
     }));
 });
 
@@ -1794,9 +1840,10 @@ $("convite-form").addEventListener("submit", e => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, email, cargo, foco, role: $("convite-role").value })
     }).catch(() => null);
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível convidar."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível convidar."); toastErro(msg); return erro(msg); }
     $("modal-convite").close();
     await carregar();
+    toast(`Membro "${nome}" convidado.`);
   });
 });
 
@@ -1804,14 +1851,16 @@ $("convite-form").addEventListener("submit", e => {
 aoClicar("cfg-salvar", async () => {
   const m = parseInt($("cfg-meta").value, 10);
   const meta = isNaN(m) ? metaESG : Math.max(1, Math.min(100, m));
-  await fetch(`${API}/organization`, {
+  const resp = await fetch(`${API}/organization`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nome: $("cfg-nome").value.trim(), setor: $("cfg-setor").value.trim(), meta })
-  });
+  }).catch(e => { toastErro("Não foi possível salvar as configurações. Verifique a conexão."); throw e; });
   await carregar();
   $("cfg-salvo").hidden = false;
   setTimeout(() => { $("cfg-salvo").hidden = true; }, 2500);
+  if (resp.ok) toast("Configurações salvas.");
+  else toastErro(await erroResposta(resp, "Não foi possível salvar as configurações."));
 });
 
 // chip groups: one active at a time
@@ -1873,12 +1922,16 @@ async function marcarLidas(alvos, rota) {
   alvos.forEach(n => { n.lida = true; });
   renderNotificacoes();
   const resp = await fetch(API + rota, { method: 'POST' }).catch(() => null);
-  if (resp && resp.ok) return;
+  if (resp && resp.ok) return null;
   alvos.forEach(n => { n.lida = false; });
   renderNotificacoes();
+  const msg = await erroResposta(resp, "Não foi possível marcar como lida.");
+  toastErro(msg);
+  return msg; // tells the caller it failed, so no success toast is shown
 }
 $("btn-sino").addEventListener("click", () => mostrarView("notificacoes"));
-$("btn-notif-lidas").addEventListener("click", () => marcarLidas(notificacoes.filter(n => !n.lida), "/notifications/read-all"));
+$("btn-notif-lidas").addEventListener("click", () => marcarLidas(notificacoes.filter(n => !n.lida), "/notifications/read-all")
+  .then(erro => { if (!erro) toast("Notificações marcadas como lidas."); }));
 document.querySelectorAll("[data-notif]").forEach(c => c.addEventListener("click", () => {
   filtroNotif = c.dataset.notif;
   marcarChip("[data-notif]", c);
@@ -1888,7 +1941,7 @@ $("lista-notif").addEventListener("click", e => {
   const ler = e.target.closest("[data-notif-ler]"), ir = e.target.closest("[data-notif-ir]");
   const n = notificacoes.find(x => String(x.id) === (ler?.dataset.notifLer ?? ir?.dataset.notifIr));
   if (!n) return;
-  if (!n.lida) marcarLidas([n], `/notifications/${n.id}/read`);
+  if (!n.lida) marcarLidas([n], `/notifications/${n.id}/read`).then(erro => { if (!erro && ler) toast("Notificação marcada como lida."); });
   if (ir) {
     const ind = indParaAtualizar(n);
     mostrarView(VISUAL_NOTIF[n.tipo].view);
@@ -1902,7 +1955,8 @@ document.querySelectorAll("[data-notif-tipo]").forEach(c => c.addEventListener("
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tipo: c.dataset.notifTipo, ativo: c.checked })
   }).catch(() => null);
-  if (!resp || !resp.ok) c.checked = !c.checked;
+  if (!resp || !resp.ok) { c.checked = !c.checked; toastErro(await erroResposta(resp, "Não foi possível salvar a preferência.")); }
+  else toast("Preferência de notificação salva.");
 }));
 
 // ================= Meu perfil =================
@@ -1984,12 +2038,13 @@ $("perfil-form").addEventListener("submit", e => {
     const resp = await fetch(`${API}/auth/me`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados)
     }).catch(() => null);
-    if (!resp || !resp.ok) return erro(await erroResposta(resp, "Não foi possível salvar os seus dados."));
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível salvar os seus dados."); toastErro(msg); return erro(msg); }
     localStorage.setItem('usuario', JSON.stringify({ ...usuarioAtual(), ...(await resp.json()) }));
     perfilEditado = false;
     await carregar(); // the name also shows on the team, indicators and tasks
     $("perfil-ok").hidden = false;
     setTimeout(() => { $("perfil-ok").hidden = true; }, 2500);
+    toast("Dados do perfil salvos.");
   });
 });
 
@@ -2116,7 +2171,7 @@ $("lista-arquivados").addEventListener("click", e => {
   if (!item) return;
   ocupar(btn, async () => {
     const resp = await fetch(`${API}/${rInd ? "indicators" : "reports"}/${item.id}/restore`, { method: 'POST' }).catch(() => null);
-    if (!resp || !resp.ok) { $("arq-erro").textContent = await erroResposta(resp, "Não foi possível restaurar."); $("arq-erro").style.display = "block"; return; }
+    if (!resp || !resp.ok) { $("arq-erro").textContent = await erroResposta(resp, "Não foi possível restaurar."); $("arq-erro").style.display = "block"; toastErro($("arq-erro").textContent); return; }
     $("arq-erro").style.display = "none";
     await Promise.all([carregar(), carregarArquivados()]);
     mostrarSucesso(`${rInd ? "Indicador" : "Relatório"} "${item.nome}" restaurado.`,
@@ -2244,16 +2299,18 @@ aoClicar("sn-salvar", async () => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ atual, nova })
-  });
+  }).catch(e => { toastErro("Não foi possível alterar a senha. Verifique a conexão."); throw e; });
   if (resp.ok) {
     ["sn-atual", "sn-nova", "sn-repetir"].forEach(id => { $(id).value = ""; });
     ocultarSenhas();
     $("sn-ok").hidden = false;
     setTimeout(() => { $("sn-ok").hidden = true; }, 3000);
+    toast("Senha alterada.");
     return;
   }
   const dados = await resp.json().catch(() => ({}));
   mostrar(dados.erro || "Não foi possível alterar a senha.");
+  toastErro(dados.erro || "Não foi possível alterar a senha.");
 });
 
 document.querySelectorAll("[data-ir]").forEach(el => el.addEventListener("click", e => {

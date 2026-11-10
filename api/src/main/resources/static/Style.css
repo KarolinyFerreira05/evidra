@@ -496,6 +496,24 @@ textarea{display:block;width:100%;margin-top:6px;padding:9px 12px;font:inherit;f
 
 /* aviso de sucesso */
 .aviso.aviso-ok{border-left-color:#1d6b3a}
+
+/* toast: canto superior direito, some sozinho */
+.toasts{--toast-ok:#1d6b3a;position:fixed;inset:20px 20px auto auto;margin:0;padding:0;border:0;background:transparent;overflow:visible;
+  width:min(360px,calc(100vw - 32px));display:flex;flex-direction:column;gap:10px;z-index:1000;pointer-events:none}
+.toasts:not(:popover-open):empty{display:none}
+.toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid var(--border);
+  border-left:4px solid var(--toast-ok);border-radius:10px;box-shadow:0 14px 30px rgba(10,40,40,.18);
+  padding:12px 10px 12px 14px;font-size:13px;color:var(--texto);animation:toast-entra .2s ease-out}
+.toast.toast-erro{border-left-color:var(--erro)}
+.toast-ic svg{width:18px;height:18px;fill:none;stroke:var(--toast-ok);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;margin-top:1px}
+.toast-erro .toast-ic svg{stroke:var(--erro)}
+.toast-corpo{flex:1;min-width:0;overflow-wrap:anywhere}
+.toast-corpo small{display:block;margin-top:4px;color:var(--muted)}
+.toast-fechar{font-size:20px;line-height:1;padding:0 4px}
+.toast.saindo{opacity:0;transform:translateX(12px);transition:opacity .2s,transform .2s}
+@keyframes toast-entra{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@media (max-width:760px){.toasts{inset:16px 16px auto auto}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}.toast.saindo{transition:none}}
 .aviso ul:empty{display:none}
 
 /* usuário na sidebar: abre Meu perfil */
