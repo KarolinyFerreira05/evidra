@@ -1468,6 +1468,8 @@ const tipoPeriodoRel = () => $("rel-modelo").value === "auditoria" ? $("rel-tipo
 const ultimoDia = (ano, mes) => new Date(ano, mes, 0).getDate(); // mes 1-12
 const pad = n => String(n).padStart(2, "0");
 let nomeEditado = false;
+// a POST /reports is in flight: blocks a second one, even if the dialog is closed and opened again meanwhile
+let gerandoRelatorio = false;
 
 // {inicio, fim, rotulo} for the chosen model, or {erro}; a report only covers dates up to today
 function periodoRelatorio() {
@@ -1510,7 +1512,7 @@ function atualizarFormRelatorio() {
   const futuro = p.erro && p.erro.includes("depois de hoje");
   $("rel-form-erro").textContent = futuro ? p.erro : "";
   $("rel-form-erro").style.display = futuro ? "block" : "none";
-  $("rel-gerar").disabled = !!futuro;
+  $("rel-gerar").disabled = !!futuro || gerandoRelatorio;
 }
 function abrirNovoRelatorio(modelo = "mensal") {
   $("rel-form").reset();
@@ -1543,31 +1545,59 @@ $("rel-form").addEventListener("input", e => {
   atualizarFormRelatorio();
 });
 $("rel-form").addEventListener("change", e => { if (e.target.id !== "rel-nome") atualizarFormRelatorio(); });
-$("rel-cancelar").addEventListener("click", () => $("modal-rel").close());
+// while generating, the dialog stays open (Cancelar and Esc do nothing), so "Gerar" can't be sent twice
+$("rel-cancelar").addEventListener("click", () => { if (!gerandoRelatorio) $("modal-rel").close(); });
+$("modal-rel").addEventListener("cancel", e => { if (gerandoRelatorio) e.preventDefault(); });
 $("rel-form").addEventListener("submit", e => {
   e.preventDefault();
+  if (gerandoRelatorio) return;
   ocupar($("rel-gerar"), async () => {
     const erro = msg => { $("rel-form-erro").textContent = msg; $("rel-form-erro").style.display = "block"; };
     const p = periodoRelatorio();
     if (p.erro) return erro(p.erro);
     const nome = $("rel-nome").value.trim();
     if (!nome) return erro("Informe o nome do relatório.");
-    const resp = await fetch(`${API}/reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, modelo: $("rel-modelo").value, periodo: tipoPeriodoRel(), inicio: p.inicio, fim: p.fim })
-    }).catch(() => null);
-    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível gerar o relatório."); toastErro(msg); return erro(msg); }
+    // the tab is opened now, while the click still counts as a user action; after the POST the popup blocker would stop it
+    const aba = abrirAbaRelatorio("Gerando relatório…");
+    gerandoRelatorio = true;
+    $("rel-cancelar").disabled = true;
+    let resp;
+    try {
+      resp = await fetch(`${API}/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, modelo: $("rel-modelo").value, periodo: tipoPeriodoRel(), inicio: p.inicio, fim: p.fim })
+      }).catch(() => null);
+    } finally {
+      gerandoRelatorio = false;
+      $("rel-cancelar").disabled = false;
+    }
+    if (!resp || !resp.ok) {
+      if (aba) aba.close();
+      const msg = await erroResposta(resp, "Não foi possível gerar o relatório.");
+      toastErro(msg);
+      return erro(msg);
+    }
+    const { id } = await resp.json().catch(() => ({}));
     $("modal-rel").close();
-    await carregar();
     toast("Relatório gerado com sucesso.");
+    $("busca").value = ""; // a search typed before must not hide the new report
+    // the list comes back newest first, so the new report is on top; meanwhile its tab fills in
+    await Promise.all([
+      carregar(),
+      id != null ? abrirRelatorio(id, $("rel-erro"), aba) : (aba && aba.close())
+    ]);
   });
 });
 
 // ---- Abrir: a print-friendly page in a new tab, built from the snapshot
-async function abrirRelatorio(id, alvoErro = $("rel-erro")) {
-  const aba = window.open("", "_blank"); // now, while the click still counts as a user action
-  if (aba) { aba.opener = null; aba.document.title = "Relatório"; aba.document.body.textContent = "Carregando relatório…"; }
+function abrirAbaRelatorio(msg = "Carregando relatório…") {
+  const aba = window.open("", "_blank");
+  if (aba) { aba.opener = null; aba.document.title = "Relatório"; aba.document.body.textContent = msg; }
+  return aba;
+}
+// `aba` is opened by the caller when the call itself comes after an await (see "Gerar")
+async function abrirRelatorio(id, alvoErro = $("rel-erro"), aba = abrirAbaRelatorio()) {
   const resp = await fetch(`${API}/reports/${id}`).catch(() => null);
   if (!resp || !resp.ok) {
     if (aba) aba.close();

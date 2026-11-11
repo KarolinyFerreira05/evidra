@@ -203,7 +203,8 @@ public class ReportController {
         registrar("criou um relatório", nome);
         notificacoes.notificar(NotificationService.RELATORIO_GERADO, "Relatório gerado: " + nome,
             null, null, relatorioId, Auth.userId());
-        return ResponseEntity.status(201).body(Map.of("ok", true));
+        // the id lets the screen open the new report right away
+        return ResponseEntity.status(201).body(Map.of("ok", true, "id", relatorioId));
     }
 
     private Map<String, Object> snapshot(int org, String nome, String modelo, LocalDate inicio, LocalDate fim) {
