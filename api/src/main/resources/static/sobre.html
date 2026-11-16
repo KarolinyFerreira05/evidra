@@ -107,7 +107,7 @@
   .recurso p{font-size:.88rem;color:var(--suave);margin-top:.4rem}
 
   /* ODS */
-  .ods{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:2.5rem}
+  .ods{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:2.5rem}
   .ods-card{border-radius:16px;overflow:hidden;border:1px solid var(--borda);display:flex;flex-direction:column}
   .ods-topo{color:#fff;padding:1.3rem 1.4rem;display:flex;align-items:center;gap:1rem}
   .ods-topo strong{font-family:'Zilla Slab',serif;font-size:2.6rem;line-height:1}
@@ -116,6 +116,8 @@
   .ods-9{background:#C9541C}
   .ods-12{background:#9A6D20}
   .ods-13{background:#3F7E44}
+  .ods-16{background:#00689D}
+  .ods-nota{margin-top:1.2rem;font-size:.88rem;color:var(--suave)}
 
   /* bionode */
   .bionode{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:center}
@@ -218,8 +220,8 @@
       <div class="numeros" aria-label="O projeto em números">
         <div class="numero cheio"><strong>3</strong><span>pilares: Ambiental, Social e Governança</span></div>
         <div class="numero"><strong>3</strong><span>perfis de acesso com papéis definidos</span></div>
-        <div class="numero"><strong>3</strong><span>ODS da ONU apoiados pelo sistema</span></div>
-        <div class="numero"><strong>100%</strong><span>dos indicadores ligados a uma evidência</span></div>
+        <div class="numero"><strong>2</strong><span>ODS da ONU apoiados pelo sistema</span></div>
+        <div class="numero"><strong>✓</strong><span>cada indicador pode ser ligado a uma evidência</span></div>
       </div>
     </div>
   </section>
@@ -342,21 +344,18 @@
     <div class="wrap">
       <p class="eyebrow">Impacto</p>
       <h2>Objetivos de Desenvolvimento Sustentável</h2>
-      <p class="intro">O Evidra se conecta a três ODS da Agenda 2030 da ONU.</p>
+      <p class="intro">O Evidra se conecta a dois ODS da Agenda 2030 da ONU: ODS 12 (meta 12.6) e ODS 16 (meta 16.6).</p>
       <div class="ods">
         <article class="ods-card">
-          <div class="ods-topo ods-12"><strong>12</strong><span>Consumo e produção responsáveis</span></div>
-          <p>Ajuda empresas a medir e comprovar o uso de recursos, a geração de resíduos e as práticas sustentáveis.</p>
+          <div class="ods-topo ods-12"><strong>12</strong><span>Consumo e produção responsáveis · meta 12.6</span></div>
+          <p>Incentiva as empresas a adotar práticas sustentáveis e a integrar informações de sustentabilidade aos seus relatórios.</p>
         </article>
         <article class="ods-card">
-          <div class="ods-topo ods-9"><strong>9</strong><span>Indústria, inovação e infraestrutura</span></div>
-          <p>Leva tecnologia e organização para a gestão ESG, substituindo planilhas soltas por um processo digital rastreável.</p>
-        </article>
-        <article class="ods-card">
-          <div class="ods-topo ods-13"><strong>13</strong><span>Ação contra a mudança global do clima</span></div>
-          <p>Dá confiabilidade aos indicadores ambientais, como emissões e energia, que orientam as decisões climáticas.</p>
+          <div class="ods-topo ods-16"><strong>16</strong><span>Paz, justiça e instituições eficazes · meta 16.6</span></div>
+          <p>Torna a gestão ESG mais eficaz, responsável e transparente, com cada dado rastreável até a sua evidência.</p>
         </article>
       </div>
+      <p class="ods-nota">Além disso, cada indicador mostra também o seu próprio ODS.</p>
     </div>
   </section>
 
@@ -421,10 +420,10 @@
       <h3 style="margin-top:3rem">Tecnologias utilizadas</h3>
       <div class="tecs">
         <span class="tec">Java <span>· Spring Boot</span></span>
-        <span class="tec">MySQL</span>
+        <span class="tec">TiDB Cloud <span>· banco de dados compatível com MySQL</span></span>
         <span class="tec">HTML, CSS e JavaScript</span>
         <span class="tec">Login com JWT</span>
-        <span class="tec">Microsoft Azure</span>
+        <span class="tec">Render <span>· hospedagem</span></span>
       </div>
     </div>
   </section>
@@ -453,7 +452,7 @@
         </details>
         <details>
           <summary>Quais ODS o Evidra apoia?</summary>
-          <p>O foco está nos ODS 12 (consumo e produção responsáveis), 9 (indústria, inovação e infraestrutura) e 13 (ação contra a mudança global do clima).</p>
+          <p>O foco está nos ODS 12 (meta 12.6: práticas sustentáveis e relatórios de sustentabilidade nas empresas) e 16 (meta 16.6: instituições eficazes, responsáveis e transparentes). Cada indicador mostra também o seu próprio ODS.</p>
         </details>
       </div>
     </div>

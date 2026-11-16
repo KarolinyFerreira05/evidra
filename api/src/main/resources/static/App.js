@@ -602,7 +602,7 @@ aoClicar("f-add", async () => {
   });
   if (!resp.ok) {
     $("f-erro").textContent = await erroResposta(resp, "Não foi possível salvar. Use um valor como 120 t ou 45%.");
-    $("f-erro").style.display = "block"; toastErro($("f-erro").textContent); return;
+    $("f-erro").style.display = "block"; showToast($("f-erro").textContent, "erro"); return;
   }
   const { id } = await resp.json();
 
@@ -633,7 +633,7 @@ aoClicar("f-add", async () => {
       falhas,
       "Envie novamente em Evidências → Nova evidência, escolhendo este indicador.");
   } else {
-    mostrarSucesso(`Indicador "${nome}" criado.`,
+    showToast(`Indicador "${nome}" criado.`, "sucesso",
       enviados ? `${enviados} ${enviados === 1 ? "evidência anexada aguarda" : "evidências anexadas aguardam"} revisão.`
                : "Ele já aparece em Indicadores. Anexe evidências para comprová-lo.");
   }
@@ -679,9 +679,9 @@ function mostrarAviso(titulo, linhas = [], dica = "", tipo = "erro") {
   aviso.hidden = false;
   if (ok) saidaAviso = setTimeout(() => { aviso.hidden = true; }, 5000);
 }
-// ---- Toast: short message at the top right; closes itself after 4 s (hover pauses it)
-const TOAST_MS = 4000, TOAST_MAX = 4;
-function toast(msg, tipo = "ok", dica = "") {
+// ---- Toast: short message at the top right; closes itself after 3 s (hover pauses it)
+const TOAST_MS = 3000, TOAST_MAX = 4;
+function showToast(msg, tipo = "ok", dica = "") {
   const box = $("toasts"), erro = tipo === "erro";
   const t = document.createElement("div");
   t.className = "toast" + (erro ? " toast-erro" : "");
@@ -708,6 +708,7 @@ function toast(msg, tipo = "ok", dica = "") {
   if (box.showPopover) { if (box.matches(":popover-open")) box.hidePopover(); box.showPopover(); }
   agendar();
 }
+const toast = showToast; // older call sites
 const toastErro = msg => toast(msg, "erro");
 // the existing success alert now shows as a toast
 const mostrarSucesso = (titulo, dica = "") => toast(titulo, "ok", dica);
@@ -772,10 +773,10 @@ $("atu-form").addEventListener("submit", e => {
     } else {
       resp = await fetch(`${API}/indicators/${indAtualizando.id}/refresh`, { method: 'POST' }).catch(() => null);
     }
-    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível atualizar o indicador."); toastErro(msg); return erro(msg); }
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível atualizar o indicador."); showToast(msg, "erro"); return erro(msg); }
     $("modal-atualizar").close();
     await carregar();
-    toast(novo ? "Valor atualizado." : "Valor confirmado.");
+    showToast(novo ? "Valor atualizado." : "Valor confirmado.", "sucesso");
   });
 });
 
@@ -815,10 +816,10 @@ $("ind-form").addEventListener("submit", e => {
     const resp = await fetch(`${API}/indicators/${indEditando.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados)
     }).catch(() => null);
-    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível salvar o indicador."); toastErro(msg); return erro(msg); }
+    if (!resp || !resp.ok) { const msg = await erroResposta(resp, "Não foi possível salvar o indicador."); showToast(msg, "erro"); return erro(msg); }
     $("modal-ind").close();
     await carregar();
-    toast(`Indicador "${dados.nome}" editado.`);
+    showToast(`Indicador "${dados.nome}" editado.`, "sucesso");
   });
 });
 
@@ -1278,8 +1279,8 @@ async function enviarEvidencias() {
     mostrarErroEvidencia(erros);
     await carregar();
     const enviadas = arquivos.length - erros.length;
-    if (enviadas) toast(enviadas === 1 ? "Evidência enviada." : `${enviadas} evidências enviadas.`);
-    if (erros.length) toastErro(erros.length === 1 ? erros[0] : `${erros.length} arquivos não foram enviados. Veja os detalhes em Evidências.`);
+    if (enviadas) showToast(enviadas === 1 ? "Evidência enviada." : `${enviadas} evidências enviadas.`, "sucesso");
+    if (erros.length) showToast(erros.length === 1 ? erros[0] : `${erros.length} arquivos não foram enviados. Veja os detalhes em Evidências.`, "erro");
   } finally {
     esconderCarregando();
   }
@@ -1429,7 +1430,7 @@ $("lista-docs").addEventListener("click", e => {
     const erro = await revisarEvidencia(d, "aprovada", "");
     mostrarErroEvidencia(erro ? [`${d.nome}: ${erro}`] : []);
     if (!erro) await carregar();
-    if (erro) toastErro(erro); else toast("Evidência aprovada.");
+    showToast(erro || "Evidência aprovada.", erro ? "erro" : "sucesso");
   });
 });
 $("rejeitar-cancelar").addEventListener("click", () => $("modal-rejeitar").close());
@@ -1440,11 +1441,11 @@ $("rejeitar-form").addEventListener("submit", e => {
     const mostrar = msg => { $("rejeitar-erro").textContent = msg; $("rejeitar-erro").style.display = "block"; };
     if (!nota) return mostrar("Informe o motivo da rejeição.");
     const erro = await revisarEvidencia(evRejeitando, "rejeitada", nota);
-    if (erro) { toastErro(erro); return mostrar(erro); }
+    if (erro) { showToast(erro, "erro"); return mostrar(erro); }
     $("modal-rejeitar").close();
     mostrarErroEvidencia([]);
     await carregar();
-    toast("Evidência rejeitada.");
+    showToast("Evidência rejeitada.", "sucesso");
   });
 });
 $("lista-docs").addEventListener("keydown", e => {
@@ -1575,12 +1576,12 @@ $("rel-form").addEventListener("submit", e => {
     if (!resp || !resp.ok) {
       if (aba) aba.close();
       const msg = await erroResposta(resp, "Não foi possível gerar o relatório.");
-      toastErro(msg);
+      showToast(msg, "erro");
       return erro(msg);
     }
     const { id } = await resp.json().catch(() => ({}));
     $("modal-rel").close();
-    toast("Relatório gerado com sucesso.");
+    showToast("Relatório gerado com sucesso.", "sucesso");
     $("busca").value = ""; // a search typed before must not hide the new report
     // the list comes back newest first, so the new report is on top; meanwhile its tab fills in
     await Promise.all([
@@ -2268,8 +2269,10 @@ $("l-senha").addEventListener("keydown", e => { if (e.key === "Enter") $("l-entr
 $("btn-sair").addEventListener("click", e => {
   e.preventDefault();
   localStorage.removeItem('token');
+  localStorage.removeItem('usuario');
   location.reload();
 });
+$("l-esqueci").addEventListener("click", e => { e.preventDefault(); $("l-esqueci-msg").hidden = false; });
 
 function aplicarUsuario() {
   const u = JSON.parse(localStorage.getItem('usuario') || '{}');
