@@ -165,7 +165,6 @@ let docs = [
 
 const modelos = [
   { chave: "mensal", nome: "Relatório mensal", desc: "Valores e evidências de um mês" },
-  { chave: "semestral", nome: "Relatório parcial/semestral", desc: "Primeiro ou segundo semestre do ano" },
   { chave: "anual", nome: "Relatório anual", desc: "O ano completo, de janeiro a dezembro" },
   { chave: "intervalo", nome: "Definir intervalo", desc: "Qualquer período, de uma data a outra" },
   { chave: "auditoria", nome: "Pacote de auditoria", desc: "Valores, evidências, revisões e lacunas do período", perm: "auditoria" }
@@ -217,10 +216,13 @@ const registrar = (icone, acao, det) => atividades.unshift({ icone, quem: "Você
 // ================= Renderização =================
 function renderResumo() {
   const notas = CATEGORIAS.map(c => notaCat(c.nome));
+  const aprovadosESG = new Set(docs.filter(d => d.status === "Aprovada" && d.indicadorId != null).map(d => d.indicadorId));
+  const comprovadosESG = indicadores.filter(i => aprovadosESG.has(i.id)).length;
   const geral = Math.round(notas.reduce((a, b) => a + b, 0) / notas.length);
   let h = `<div class="card destaque">
     <p class="rotulo">Índice ESG geral</p>
     <div class="nota-linha"><span class="nota">${geral}<span class="de100"> /100</span></span></div>
+    <p class="ganho">Baseado em ${comprovadosESG} de ${indicadores.length} indicadores comprovados</p>
     <p class="ganho">+6 pontos desde 2025</p>
     <div class="meta-linha"><span>Meta anual</span><span>${geral} de ${metaESG}</span></div>
     <div class="progresso"><div style="width:${Math.min(100, geral / metaESG * 100)}%"></div></div></div>`;
@@ -241,7 +243,7 @@ function renderAtencao() {
       <span class="ic-caixa ${i.status === "Desatualizado" ? "amarelo" : ""}">${ic("warn")}</span>
       <div class="corpo"><strong>${esc(i.nome)}</strong></div>
       <span class="meta esconde">${i.cat}</span>
-      <span class="meta">Há ${i.ha} ${i.ha === 1 ? "mês" : "meses"}</span>
+      <span class="meta">${i.status === "Em revisão" ? "Aguardando revisão" : `Há ${i.ha} ${i.ha === 1 ? "mês" : "meses"}`}</span>
       <span class="avatar">${i.resp}</span>
       ${pode("indicadores") ? `<button class="btn-secundario btn-mini" data-atualizar="${i.id}">${i.status === "Desatualizado" ? "Atualizar" : "Revisar"}</button>` : ""}
     </div>`).join("") : vazio("Nenhum indicador precisa de atenção.");
@@ -366,6 +368,7 @@ function pesoPrioridade(p) {
     .trim();
   return chave in ORDEM_PRIORIDADE ? ORDEM_PRIORIDADE[chave] : 3; // desconhecidas vão pro fim
 }
+const textoPrazo = p => diasAte(p) == null ? p : "Prazo " + p; // "Aguardando revisão" has no date
 function renderPendencias() {
   const abertas = tarefas.filter(t => !t.feita).length;
   $("sub-pend").textContent = `${abertas} ${abertas === 1 ? "tarefa aberta" : "tarefas abertas"}. Elas somem sozinhas quando o problema é resolvido.`;
@@ -379,7 +382,7 @@ function renderPendencias() {
     return `
     <div class="linha pend pend-sistema">
       <span class="circulo circulo-sistema" title="Gerada pelo sistema">${ic("cog")}</span>
-      <div class="corpo"><strong>${esc(t.texto)}</strong><small>${esc(t.quem)} · Prazo ${esc(t.Prazo)}${ind ? " · " + esc(ind.nome) : ""}</small></div>
+      <div class="corpo"><strong>${esc(t.texto)}</strong><small>${esc(t.quem)} · ${esc(textoPrazo(t.Prazo))}${ind ? " · " + esc(ind.nome) : ""}</small></div>
       <span class="pill mute">Sistema</span>
       <span class="pill ${t.prio === "Alta" ? "warn" : t.prio === "Média" ? "info" : "mute"}">${t.prio}</span>
     </div>`;
@@ -1141,7 +1144,7 @@ function renderPessoa(d) {
         <h3>Pendências abertas</h3>
         ${pends.length ? `<ul>${pends.map(t => {
           const dias = diasAte(t.Prazo);
-          return `<li><span>${esc(t.texto)}<small>Prazo ${esc(t.Prazo)}${dias != null && dias < 0 ? " · atrasada" : ""}</small></span><span class="pill ${t.prio === "Alta" ? "warn" : t.prio === "Média" ? "info" : "mute"}">${t.prio}</span></li>`;
+          return `<li><span>${esc(t.texto)}<small>${esc(textoPrazo(t.Prazo))}${dias != null && dias < 0 ? " · atrasada" : ""}</small></span><span class="pill ${t.prio === "Alta" ? "warn" : t.prio === "Média" ? "info" : "mute"}">${t.prio}</span></li>`;
         }).join("")}</ul>` : `<p class="vazio vazio-sem-pad">Nenhuma pendência aberta.</p>`}
       </section>
     </div>

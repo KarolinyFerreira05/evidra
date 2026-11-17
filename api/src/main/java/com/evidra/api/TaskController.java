@@ -41,7 +41,9 @@ public class TaskController {
         m.put("id", id);
         m.put("texto", texto);
         m.put("quem", quem != null ? quem : "—");
-        m.put("Prazo", prazo != null ? prazo.format(BR) : "—");
+        // evidence has no deadline; an indicator never measured has no date to count from
+        m.put("Prazo", prazo != null ? prazo.format(BR)
+            : String.valueOf(id).startsWith("sys-ev-") ? "Aguardando revisão" : "Sem valor registrado");
         m.put("prio", switch (prio) { case "alta" -> "Alta"; case "baixa" -> "Baixa"; default -> "Média"; });
         m.put("feita", feita);
         m.put("origem", origem);

@@ -103,6 +103,7 @@ button{cursor:pointer;font-weight:600}
 .secao-titulo{font-size:16px;margin-bottom:12px}
 .grade-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem}
 .grade-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+#modelos.grade-3{grid-template-columns:1fr 1fr}
 .verde{color:var(--teal-900);font-size:18px}
 
 /* cards de resumo */
@@ -263,7 +264,7 @@ dialog::backdrop{background:rgba(10,40,40,.45)}
   .sidebar.aberta{transform:none}
   .container{padding:1.5rem 1rem 3rem}
   .cab{flex-direction:column;align-items:flex-start}
-  .grade-3,.resumo{grid-template-columns:1fr}
+  .grade-3,.resumo,#modelos.grade-3{grid-template-columns:1fr}
   .topo .btn-primario{font-size:0;gap:0}.topo .btn-primario i{font-size:16px}
   .linha{flex-wrap:wrap}
   .linha .meta.esconde{display:none}
